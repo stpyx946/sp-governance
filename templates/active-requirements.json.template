@@ -1,0 +1,5 @@
+{
+  "project": "{{PROJECT_NAME}}",
+  "requirements": [],
+  "conflict_hotspots": []
+}

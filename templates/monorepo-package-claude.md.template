@@ -1,0 +1,62 @@
+<!-- Template: 生成后应编辑为实际内容 -->
+# {{PACKAGE_NAME}} - {{PACKAGE_DESCRIPTION}}
+
+> 本包属于 Monorepo **{{MONOREPO_NAME}}**，由 sp-pm 管理体系管辖。
+> Agent 角色权限遵循: `{{GOVERNANCE_REL_PATH}}/role-permissions.md`
+
+## 包概述
+
+- **包名称**: {{PACKAGE_NAME}}
+- **所属 Monorepo**: {{MONOREPO_NAME}}
+- **技术栈**: {{TECH_STACK}}
+- **级别**: {{LEVEL}} 级 ({{SOURCE_FILES}} 源文件)
+
+## 包结构
+
+```
+{{PACKAGE_STRUCTURE}}
+```
+
+## 构建命令
+
+```bash
+# 单包构建
+{{BUILD_COMMAND}}
+
+# 单包测试
+{{TEST_COMMAND}}
+
+# Workspace 全量构建
+{{WORKSPACE_BUILD}}
+
+# Workspace 全量测试
+{{WORKSPACE_TEST}}
+```
+
+## 共享依赖
+
+本包可访问的共享包:
+{{SHARED_DEPS_LIST}}
+
+修改共享包时需验证所有下游包的构建和测试。
+
+## 开发规范
+
+{{#IF_GROUP}}
+- 遵循 `{{SHARED_PROTOCOLS_REL_PATH}}` 中的编码规范
+{{/IF_GROUP}}
+- 注释使用中文
+- 接口变更必须通知 {{NOTIFY_TARGET}}
+
+## 依赖关系
+
+- **上游 (共享包)**: {{UPSTREAM_SHARED}}
+- **下游 (依赖本包的包)**: {{DOWNSTREAM_PACKAGES}}
+
+## Agent 约束
+
+- sp-coder: 可读写本包 + shared_deps 范围内的代码 (通过 project_paths 控制)
+- sp-tester: 可读写测试文件 (限 project_paths 范围内的测试目录)
+- sp-architect: 只读分析，输出设计方案 (mode: plan)
+- sp-reviewer: 只读审查 (mode: plan)
+- **特别注意**: Monorepo 包变更需按 build_order 验证，修改共享包影响所有下游

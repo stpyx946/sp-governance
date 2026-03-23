@@ -1,0 +1,27 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "sp-governance",
+  "description": "Multi-project portfolio governance with role-based agent constraints",
+  "owner": {
+    "name": "leosyli"
+  },
+  "plugins": [
+    {
+      "name": "sp-governance",
+      "description": "Multi-project portfolio governance plugin - role-based constraints, bootstrap protocol, and project-level management for Claude Code",
+      "version": "7.1.0",
+      "author": {
+        "name": "leosyli"
+      },
+      "source": "./",
+      "category": "productivity",
+      "tags": [
+        "governance",
+        "portfolio",
+        "multi-project",
+        "role-based"
+      ]
+    }
+  ],
+  "version": "7.1.0"
+}

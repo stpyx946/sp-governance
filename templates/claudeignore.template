@@ -1,0 +1,48 @@
+# === 构建产物 ===
+**/target/
+**/dist/
+**/build/
+**/out/
+**/.next/
+**/.nuxt/
+
+# === 依赖 ===
+**/node_modules/
+**/.pnpm-store/
+
+# === IDE ===
+**/.idea/
+**/.vscode/
+**/*.iml
+
+# === 不纳入管理的目录 ===
+{{UNMANAGED_DIRS}}
+
+# === 归档 (规划迭代/审计报告) ===
+governance/archive/
+
+# === 数据文件 ===
+*.sql
+*.sql.gz
+*.zip
+*.tar.gz
+*.jar
+*.war
+
+# === 日志 ===
+**/log/
+**/logs/
+**/*.log
+
+# === 系统/临时文件 ===
+**/.DS_Store
+**/Thumbs.db
+**/*.swp
+**/*.swo
+
+# === 敏感文件 ===
+**/.env
+**/.env.local
+**/.env.production
+**/credentials.json
+**/serviceAccountKey.json

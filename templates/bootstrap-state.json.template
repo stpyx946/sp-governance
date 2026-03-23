@@ -1,0 +1,22 @@
+{
+  "last_full_diagnostic": "{{TIMESTAMP}}",
+  "last_drift_check": "{{TIMESTAMP}}",
+  "drift_result": "clean",
+  "portfolio_version": "{{VERSION}}",
+  "governance_mode": "{{MODE}}",
+  "diagnostic_result": {
+    "plugin_verified": true,
+    "plugin_dirs": ["sp-governance"],
+    "governance_expected": 5,
+    "governance_found": {{GOVERNANCE_FOUND}},
+    "projects_verified": [{{PROJECTS_LIST}}],
+    "issues": []
+  },
+  "sessions": [
+    {
+      "session_id": "{{SESSION_ID}}",
+      "started_at": "{{TIMESTAMP}}",
+      "last_activity": "{{TIMESTAMP}}"
+    }
+  ]
+}

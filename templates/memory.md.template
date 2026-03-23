@@ -1,0 +1,22 @@
+<!-- Template: 生成后应编辑为实际内容 -->
+## {{WORKSPACE_NAME}} 工作空间状态
+
+- **项目**: {{PROJECT_COUNT}} 个 ({{PROJECT_LIST}})
+- **分组**: {{GROUP_SUMMARY}}
+- **unmanaged**: {{UNMANAGED_LIST}}
+- **上次完整检查**: {{CHECK_DATE}}
+- **引导版本**: v4 (自引导架构)
+
+### 项目技术栈
+
+| 项目 | 技术栈 | 级别 | 源文件数 |
+|------|--------|------|---------|
+{{TECH_STACK_TABLE}}
+
+### 已知问题
+
+- (待发现)
+
+### 优化历史 ({{CHECK_DATE}})
+
+- 初始引导完成

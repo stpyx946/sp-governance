@@ -1,0 +1,31 @@
+<!-- Template: 生成后应编辑为实际内容 -->
+# {{GROUP_NAME}} 共享协议
+
+> 组内项目间的公共约定。所有成员项目必须遵守。
+
+## 编码规范
+
+{{CODING_STANDARDS}}
+
+## 分支规范
+
+- `main`: 生产环境
+- `develop`: 开发环境
+- `feature/*`: 功能开发
+- `hotfix/*`: 紧急修复
+- `spike/*`: 探索/原型验证 (草稿状态，不可合并到 main)
+
+## 构建顺序
+
+```
+{{BUILD_ORDER}}
+```
+
+## 环境配置共性
+
+{{ENV_CONFIG}}
+
+## 变更通知协议
+
+任何成员项目的以下变更必须通知 Group-Lead:
+{{CHANGE_NOTIFICATION_RULES}}

@@ -1,0 +1,25 @@
+<!-- Template: 生成后应编辑为实际内容 -->
+# {{GROUP_NAME}} 组配置
+
+## 组信息
+
+- **组名**: {{GROUP_NAME}}
+- **描述**: {{GROUP_DESCRIPTION}}
+- **创建日期**: {{CREATED_DATE}}
+- **Group-Lead**: 按需生成 (组有活跃任务时)
+
+## 成员项目
+
+| 项目 | 定位 | 级别 | 技术栈 |
+|------|------|------|--------|
+{{MEMBER_TABLE}}
+
+## 依赖关系
+
+```
+{{DEPENDENCY_TREE}}
+```
+
+## 协调规则
+
+{{COORDINATION_RULES}}

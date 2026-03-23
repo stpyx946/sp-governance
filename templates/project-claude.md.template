@@ -1,0 +1,47 @@
+<!-- Template: 生成后应编辑为实际内容 -->
+# {{PROJECT_NAME}} - {{PROJECT_DESCRIPTION}}
+
+> 本项目由 sp-pm 管理体系管辖，属于 **{{GROUP_NAME}}** {{GROUP_TYPE}}。
+> Agent 角色权限遵循: `{{GOVERNANCE_REL_PATH}}/role-permissions.md`
+
+## 项目概述
+
+- **项目名称**: {{PROJECT_NAME}}
+- **技术栈**: {{TECH_STACK}}
+- **级别**: {{LEVEL}} 级 ({{SOURCE_FILES}} 源文件)
+{{PARENT_POM_LINE}}
+
+## 项目结构
+
+```
+{{PROJECT_STRUCTURE}}
+```
+
+## 构建命令
+
+```bash
+{{BUILD_COMMANDS}}
+```
+
+## 开发规范
+
+{{#IF_GROUP}}
+- 遵循 `{{SHARED_PROTOCOLS_REL_PATH}}` 中的编码规范
+{{/IF_GROUP}}
+{{#IF_STANDALONE}}
+- 遵循项目内部编码规范
+{{/IF_STANDALONE}}
+- 注释使用中文
+- 接口变更必须通知 {{NOTIFY_TARGET}}
+
+## 依赖关系
+
+- **上游**: {{UPSTREAM_DEPS}}
+- **下游**: {{DOWNSTREAM_DEPS}}
+
+## Agent 约束
+
+- sp-coder: 可读写本项目业务代码 (限本项目分支)
+- sp-tester: 可读写本项目测试文件
+- sp-architect: 只读分析，输出设计方案 (disallowedTools 物理执行)
+- sp-reviewer: 只读审查 (disallowedTools 物理执行)

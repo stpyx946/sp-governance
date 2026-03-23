@@ -1,0 +1,16 @@
+{
+  "name": "sp-governance",
+  "version": "7.3.0",
+  "description": "Multi-project portfolio governance plugin - role-based constraints and project-level management",
+  "author": {
+    "name": "leosyli"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "claude-code",
+    "plugin",
+    "governance",
+    "portfolio",
+    "multi-project"
+  ]
+}
