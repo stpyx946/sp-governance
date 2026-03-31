@@ -198,6 +198,48 @@ portfolio.json schema 定义见项目根目录 CLAUDE.md。
 - **条件激活**: sp-governance hooks 仅在 portfolio.json 存在时激活
 - **子项目优先**: 子项目 CLAUDE.md 优先于本文件通用规则
 - **互不干扰**: 本体系治理规则不影响宿主环境正常功能
+- **OMC 优先**: SP 治理不替代 OMC 能力，而是在 OMC 之上叠加项目级管控。PM 应优先利用 OMC 的执行模式、工具和 agents
+
+### OMC 执行模式整合
+
+PM 调度任务时，应根据任务特征选择合适的 OMC 执行模式，再组合 SP agents:
+
+| 任务特征 | OMC 模式 | 组合方式 |
+|----------|----------|----------|
+| ≥3 个独立子任务需并行 | `/ultrawork` | ultrawork 内部派发 sp-governance agents |
+| 迭代直到完成（实现+验证循环）| `/ralph` | ralph 驱动 sp-coder → sp-tester 循环 |
+| 端到端自主执行 | `/autopilot` | autopilot 全流程，使用 sp-governance agents |
+| 需求模糊需先澄清 | `/ralplan` 或 `/deep-interview` | 先澄清，再用 SP agents 执行 |
+| 复杂 bug 定位 | `/trace` | tracer 定位 → sp-coder 修复 |
+| N 个协作 agent 流水线 | `/team` | team pipeline 内使用 sp-governance agents |
+| 多模型交叉验证 | `/ccg` | Claude+Codex+Gemini 分析 → SP agent 执行 |
+| QA 循环验证 | `/ultraqa` | ultraqa 驱动 sp-tester 反复验证 |
+
+### OMC Agents 使用场景
+
+以下场景应直接使用 OMC agents 而非 SP agents:
+
+| 场景 | OMC Agent | 说明 |
+|------|-----------|------|
+| 快速代码搜索/探索 | `oh-my-claudecode:explore` | 不涉及修改，无需 SP 治理 |
+| 外部文档/API 查阅 | `oh-my-claudecode:document-specialist` | 外部资源查阅 |
+| 深度架构分析（不限于单项目）| `oh-my-claudecode:architect` | 跨项目/全局视角 |
+| 调试根因分析 | `oh-my-claudecode:debugger` 或 `oh-my-claudecode:tracer` | 诊断阶段不修改代码 |
+| 安全审查 | `oh-my-claudecode:security-reviewer` | 只读审查 |
+| 代码审查（非项目治理流程）| `oh-my-claudecode:code-reviewer` | 轻量审查 |
+| 方案规划 | `oh-my-claudecode:planner` | 规划阶段 |
+| Git 操作 | `oh-my-claudecode:git-master` | commit/rebase/history |
+| UI/UX 设计 | `oh-my-claudecode:designer` | 界面设计 |
+| 数据分析 | `oh-my-claudecode:scientist` | 研究分析 |
+
+### OMC 工具使用
+
+PM 应主动使用 OMC 工具增强工作流:
+
+- **notepad**: 跨 agent 共享上下文（规划草稿、分析发现、任务备注）
+- **state**: 持久化执行状态（跨会话恢复进度）
+- **project-memory**: 记录项目级决策和约定（补充 MEMORY.md）
+- **session-search**: 搜索历史会话中的相关讨论
 
 ---
 
