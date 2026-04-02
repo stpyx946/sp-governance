@@ -1,0 +1,13 @@
+{
+  "name": "sp-governance",
+  "version": "7.3.0",
+  "private": true,
+  "type": "module",
+  "description": "多项目 Portfolio 治理插件 (Claude Code plugin, hooks + agents)",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "playwright": "^1.50.0",
+    "marked": "^15.0.0",
+    "turndown": "^7.0.0"
+  }
+}

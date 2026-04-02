@@ -1,0 +1,47 @@
+{
+  "user": {
+    "name": "your-username",
+    "team": "your-team"
+  },
+  "feishu": {
+    "defaultFolder": "",
+    "wikiSpaceUrl": ""
+  },
+  "scaffold": {
+    "defaultTemplate": "react-app",
+    "packageManager": "pnpm"
+  },
+  "arch": {
+    "adrDir": "./docs/adr"
+  },
+  "git": {
+    "repos": []
+  },
+  "webhook": {
+    "enabled": true,
+    "defaultChannels": ["feishu"],
+    "channels": {
+      "feishu": {
+        "webhookUrl": "https://open.feishu.cn/open-apis/bot/v2/hook/your-webhook-id",
+        "secret": ""
+      }
+    },
+    "events": {
+      "skill_completed": true,
+      "skill_failed": true,
+      "login_expiring": true,
+      "health_check_result": true,
+      "task_analysis_completed": true
+    }
+  },
+  "taskPilot": {
+    "sources": {
+      "git": true,
+      "todoFiles": ["TODO.md"],
+      "feishuTodoUrl": "",
+      "grepPatterns": ["TODO", "FIXME"]
+    },
+    "autoNotify": true
+  },
+  "projects": {}
+}

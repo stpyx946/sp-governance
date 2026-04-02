@@ -301,3 +301,36 @@ Glob, Grep, NotebookEdit, ast_grep_*, python_repl, lsp_*, WebFetch, WebSearch
 ### 审计日志
 
 所有工具调用记录在 `.omc/logs/pm-audit.jsonl`（5MB 轮转）。
+
+## 十、飞书自动化能力 (Feishu Integration)
+
+从 work-helper 项目集成的飞书自动化能力，包括 8 个新 Skill：
+
+### Skills
+| Skill | 触发词 | 说明 |
+|-------|--------|------|
+| sp-feishu-login | 飞书登录 | 飞书会话登录 |
+| sp-feishu-prd | PRD/产品需求 | PRD 文档生成 |
+| sp-feishu-weekly | 周报/月报 | 周报月报生成 |
+| sp-feishu-member-weekly | 成员周报 | 成员周报汇总 |
+| sp-feishu-project-board | 创建飞书项目 | 项目空间初始化 |
+| sp-feishu-bitable | 多维表格 | 多维表格管理 |
+| sp-feishu-doc | 飞书文档 | 文档创建/读取 |
+| sp-feishu-notify | 飞书通知 | Webhook 通知 |
+
+### 目录结构
+- `scripts/feishu/` — 飞书入口脚本
+- `scripts/lib/feishu/` — 共享库（browser-manager, selectors, pages/, gantt, milestone, notify）
+- `scripts/lib/check-deps.mjs` — 运行时依赖检测
+- `templates/feishu/` — 飞书文档模板
+- `templates/bitable/` — 多维表格模板
+- `config/feishu-config.example.json` — 飞书配置模板
+
+### 依赖
+playwright ^1.50.0, marked ^15.0.0, turndown ^7.0.0
+
+运行 `node scripts/lib/check-deps.mjs` 检测依赖状态（自动检测全局→workspace→本地）。
+
+### 共享路径
+- 认证数据: `<workspace>/auth/`
+- 项目注册: `<workspace>/config/projects.json`
