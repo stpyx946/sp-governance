@@ -388,6 +388,36 @@ export class FeishuWikiPage extends BasePage {
   }
 
   /**
+   * 更新已有 Wiki 页面的内容
+   * @param {string} wikiUrl - Wiki 页面 URL
+   * @param {string} title - 新标题（可选，null 则不修改）
+   * @param {string} markdownContent - 新的 Markdown 内容
+   */
+  async updateWikiPage(wikiUrl, title, markdownContent) {
+    console.log(`导航到 Wiki 页面: ${wikiUrl}`);
+    await this.navigateTo(wikiUrl);
+    await this.page.waitForLoadState('networkidle');
+    await dismissPopups(this.page);
+    await this.page.waitForTimeout(2000);
+
+    // 如果需要更新标题
+    if (title) {
+      console.log(`更新标题: ${title}`);
+      await this.docPage.setTitle(title);
+    }
+
+    // 清空现有内容并写入新内容
+    if (markdownContent && markdownContent.trim()) {
+      console.log('清空并写入新内容...');
+      await this.docPage.clearAndWriteContent(markdownContent);
+    }
+
+    await this.page.waitForTimeout(3000);
+    console.log(`页面更新完成: ${wikiUrl}`);
+    return { url: wikiUrl, title };
+  }
+
+  /**
    * 读取 Wiki 页面内容
    */
   async readWikiPage(wikiUrl) {

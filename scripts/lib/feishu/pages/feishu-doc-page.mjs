@@ -379,6 +379,26 @@ export class FeishuDocPage extends BasePage {
     await this.page.waitForTimeout(300);
   }
 
+  /**
+   * 清空文档正文内容并写入新内容
+   * 保留标题，只清除正文部分
+   */
+  async clearAndWriteContent(markdownContent) {
+    // 点击正文区域
+    const body = this.page.locator('[class*="doc-content"], [class*="note-content"], [data-content-editable-root]').first();
+    await body.click();
+    await this.page.waitForTimeout(500);
+
+    // 全选正文内容 (Ctrl+A) 然后删除
+    await this.page.keyboard.press('Control+A');
+    await this.page.waitForTimeout(300);
+    await this.page.keyboard.press('Backspace');
+    await this.page.waitForTimeout(500);
+
+    // 写入新内容
+    await this.writeContent(markdownContent);
+  }
+
   _escapeHtml(str) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
