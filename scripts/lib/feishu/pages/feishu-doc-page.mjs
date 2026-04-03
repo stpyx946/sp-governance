@@ -73,7 +73,7 @@ export class FeishuDocPage extends BasePage {
       const el = await this.find(selectors.doc.titleInput, { timeout: 5000 });
       await el.click();
     }
-    await this.page.keyboard.type(title, { delay: 30 });
+    await this._pasteText(title);
     await this.page.keyboard.press('Enter');
     await this.page.waitForTimeout(500);
   }
@@ -217,14 +217,16 @@ export class FeishuDocPage extends BasePage {
   // ===== 写入方法 =====
 
   async _writeHeading(level, text) {
+    // 输入 "# " 前缀触发飞书标题模式，文本内容用剪贴板粘贴避免特殊字符问题
     const prefix = '#'.repeat(level) + ' ';
-    await this.page.keyboard.type(prefix + text, { delay: 20 });
+    await this.page.keyboard.type(prefix, { delay: 20 });
+    await this._pasteText(text);
     await this.page.keyboard.press('Enter');
     await this.page.waitForTimeout(300);
   }
 
   async _writeParagraph(text) {
-    await this.page.keyboard.type(text, { delay: 15 });
+    await this._pasteText(text);
     await this.page.keyboard.press('Enter');
     await this.page.waitForTimeout(200);
   }
@@ -232,11 +234,12 @@ export class FeishuDocPage extends BasePage {
   async _writeBulletList(items) {
     for (let i = 0; i < items.length; i++) {
       if (i === 0) {
-        // 第一项：输入 "- " 触发列表模式
-        await this.page.keyboard.type('- ' + items[i], { delay: 15 });
+        // 第一项：输入 "- " 触发列表模式，内容用剪贴板粘贴
+        await this.page.keyboard.type('- ', { delay: 15 });
+        await this._pasteText(items[i]);
       } else {
-        // 后续项：飞书自动延续列表
-        await this.page.keyboard.type(items[i], { delay: 15 });
+        // 后续项：飞书自动延续列表，内容用剪贴板粘贴
+        await this._pasteText(items[i]);
       }
       await this.page.keyboard.press('Enter');
       await this.page.waitForTimeout(150);
@@ -249,9 +252,12 @@ export class FeishuDocPage extends BasePage {
   async _writeOrderedList(items) {
     for (let i = 0; i < items.length; i++) {
       if (i === 0) {
-        await this.page.keyboard.type('1. ' + items[i], { delay: 15 });
+        // 第一项：输入 "1. " 触发有序列表模式，内容用剪贴板粘贴
+        await this.page.keyboard.type('1. ', { delay: 15 });
+        await this._pasteText(items[i]);
       } else {
-        await this.page.keyboard.type(items[i], { delay: 15 });
+        // 后续项：飞书自动延续列表，内容用剪贴板粘贴
+        await this._pasteText(items[i]);
       }
       await this.page.keyboard.press('Enter');
       await this.page.waitForTimeout(150);
@@ -319,14 +325,8 @@ export class FeishuDocPage extends BasePage {
       await this.page.waitForTimeout(500);
     }
 
-    // 逐行输入 mermaid 代码
-    const codeLines = code.split('\n');
-    for (let i = 0; i < codeLines.length; i++) {
-      await this.page.keyboard.type(codeLines[i], { delay: 10 });
-      if (i < codeLines.length - 1) {
-        await this.page.keyboard.press('Enter');
-      }
-    }
+    // 整体粘贴 mermaid 代码，避免逐行输入导致的格式问题
+    await this._pasteText(code);
     await this.page.waitForTimeout(1500);
 
     // 退出 Mermaid 编辑器，回到文档正文
@@ -361,14 +361,8 @@ export class FeishuDocPage extends BasePage {
     await this.page.keyboard.press('Enter');
     await this.page.waitForTimeout(1000);
 
-    // 输入代码
-    const codeLines = code.split('\n');
-    for (let i = 0; i < codeLines.length; i++) {
-      await this.page.keyboard.type(codeLines[i], { delay: 10 });
-      if (i < codeLines.length - 1) {
-        await this.page.keyboard.press('Enter');
-      }
-    }
+    // 整体粘贴代码内容，避免逐行 Enter 导致飞书代码块自动缩进产生多余空格
+    await this._pasteText(code);
     await this.page.waitForTimeout(500);
 
     // 退出代码块
@@ -397,6 +391,20 @@ export class FeishuDocPage extends BasePage {
 
     // 写入新内容
     await this.writeContent(markdownContent);
+  }
+
+  /**
+   * 通过剪贴板粘贴文本，绕过飞书编辑器的特殊字符拦截
+   * 避免 @ 触发联想弹窗、/ 触发斜杠命令等问题
+   */
+  async _pasteText(text) {
+    await this.page.evaluate(async (content) => {
+      const textBlob = new Blob([content], { type: 'text/plain' });
+      const item = new ClipboardItem({ 'text/plain': textBlob });
+      await navigator.clipboard.write([item]);
+    }, text);
+    await this.page.keyboard.press('Control+V');
+    await this.page.waitForTimeout(200);
   }
 
   _escapeHtml(str) {
