@@ -49,6 +49,27 @@ node scripts/feishu/feishu-create-wiki-doc.mjs \
 | --content-file | 条件 | 内容文件路径 |
 | --force | 否 | true 跳过去重检查 |
 
+### 更新 Wiki 页面
+
+```bash
+node scripts/feishu/feishu-update-wiki-doc.mjs \
+  --user default \
+  --wiki-url "https://my.feishu.cn/wiki/xxxxx" \
+  --title "新标题" \
+  --content-file "path/to/file.md"
+```
+
+参数：
+| 参数 | 必需 | 说明 |
+|------|------|------|
+| --user | 否 | 飞书账户（默认 default） |
+| --wiki-url | 是 | 要更新的 Wiki 页面 URL |
+| --title | 否 | 新标题（不填则保留原标题）|
+| --content | 条件 | 新内容（与 content-file 二选一）|
+| --content-file | 条件 | 新内容文件路径 |
+
+说明：更新采用清空重写模式，先完整清除页面内容再写入新内容。
+
 ## Notes
 
 - 执行角色: sp-team-lead
