@@ -61,7 +61,7 @@ export class FeishuDocPage extends BasePage {
   }
 
   /**
-   * 设置文档标题
+   * 设置文档标题（先清空旧标题再写入新标题）
    */
   async setTitle(title) {
     const titleEl = this.page.locator('.zone-container.text-editor').first();
@@ -73,6 +73,15 @@ export class FeishuDocPage extends BasePage {
       const el = await this.find(selectors.doc.titleInput, { timeout: 5000 });
       await el.click();
     }
+    await this.page.waitForTimeout(300);
+
+    // 选中旧标题并删除
+    await this.page.keyboard.press('Control+A');
+    await this.page.waitForTimeout(200);
+    await this.page.keyboard.press('Backspace');
+    await this.page.waitForTimeout(300);
+
+    // 写入新标题
     await this._pasteText(title);
     await this.page.keyboard.press('Enter');
     await this.page.waitForTimeout(500);
@@ -383,9 +392,17 @@ export class FeishuDocPage extends BasePage {
     await body.click();
     await this.page.waitForTimeout(500);
 
-    // 全选正文内容 (Ctrl+A) 然后删除
+    // 多次 Ctrl+A 确保选中全部正文（飞书有时一次 Ctrl+A 只选当前块）
+    for (let i = 0; i < 3; i++) {
+      await this.page.keyboard.press('Control+A');
+      await this.page.waitForTimeout(300);
+    }
+    await this.page.keyboard.press('Backspace');
+    await this.page.waitForTimeout(500);
+
+    // 再次确认清空（防止残留内容）
     await this.page.keyboard.press('Control+A');
-    await this.page.waitForTimeout(300);
+    await this.page.waitForTimeout(200);
     await this.page.keyboard.press('Backspace');
     await this.page.waitForTimeout(500);
 

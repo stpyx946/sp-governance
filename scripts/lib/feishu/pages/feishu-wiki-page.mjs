@@ -400,16 +400,16 @@ export class FeishuWikiPage extends BasePage {
     await dismissPopups(this.page);
     await this.page.waitForTimeout(2000);
 
-    // 如果需要更新标题
-    if (title) {
-      console.log(`更新标题: ${title}`);
-      await this.docPage.setTitle(title);
-    }
-
-    // 清空现有内容并写入新内容
+    // 先清空正文并写入新内容（避免焦点冲突）
     if (markdownContent && markdownContent.trim()) {
       console.log('清空并写入新内容...');
       await this.docPage.clearAndWriteContent(markdownContent);
+    }
+
+    // 最后设置标题
+    if (title) {
+      console.log(`更新标题: ${title}`);
+      await this.docPage.setTitle(title);
     }
 
     await this.page.waitForTimeout(3000);
