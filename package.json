@@ -1,6 +1,6 @@
 {
   "name": "sp-governance",
-  "version": "7.3.0",
+  "version": "8.0.0",
   "private": true,
   "type": "module",
   "description": "多项目 Portfolio 治理插件 (Claude Code plugin, hooks + agents)",

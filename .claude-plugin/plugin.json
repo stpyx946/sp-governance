@@ -1,7 +1,7 @@
 {
   "name": "sp-governance",
-  "version": "7.3.1",
-  "description": "Multi-project portfolio governance plugin - role-based constraints and project-level management",
+  "version": "8.0.0",
+  "description": "Lightweight multi-project governance layer - project boundary guards and safety hooks",
   "author": {
     "name": "leosyli"
   },

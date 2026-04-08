@@ -1,6 +1,6 @@
 ---
 name: sp-dispatch
-description: Quick task dispatch to a project via the correct SP governance agent
+description: Quick task dispatch to a project via OMC agents with project context
 argument-hint: "<project> [role] \"task description\""
 triggers:
   - "派发任务"
@@ -9,9 +9,10 @@ triggers:
   - "派发给"
 ---
 
-# SP Dispatch Skill
+# SP Dispatch Skill (v8)
 
 Streamlined task dispatch with project validation, role inference, and background execution.
+Uses OMC agents (not SP-specific agents).
 
 ## Use When
 
@@ -24,37 +25,40 @@ Streamlined task dispatch with project validation, role inference, and backgroun
 
 Format: `<project-name> [role] "task description"`
 
-Role inference (if omitted):
-- "分析/analyze/design" → sp-architect
-- "实现/implement/fix/refactor" → sp-coder
-- "审查/review" → sp-reviewer
-- "测试/test" → sp-tester
-- "文档/doc" → sp-doc-engineer
-- Default → sp-team-lead
+Role → OMC Agent mapping:
+- "分析/analyze/design" → oh-my-claudecode:architect
+- "实现/implement/fix/refactor" → oh-my-claudecode:executor
+- "审查/review" → oh-my-claudecode:code-reviewer
+- "测试/test" → oh-my-claudecode:test-engineer
+- "文档/doc" → oh-my-claudecode:writer
+- "安全/security" → oh-my-claudecode:security-reviewer
+- "调试/debug" → oh-my-claudecode:debugger
+- Default → oh-my-claudecode:executor
 
 ### 2. Validate Project
 
-Read portfolio.json, fuzzy match project name ("auth" → "snapmaker-auth").
+Read portfolio.json, fuzzy match project name.
 If ambiguous, list candidates and ask user.
 
 ### 3. Build Context
 
 ```
-[Project] <name>
-[Path] /workspace/snapmaker/<path>
+[Project] <name> (<tech_stack>/<framework>)
+[Path] <workspace>/<path>
 [Group] <group>
+[Level] <level>
 [Task] <description>
 ```
 
 ### 4. Dispatch (Background)
 
 ```
-Agent(subagent_type="sp-governance:sp-<role>",
+Agent(subagent_type="oh-my-claudecode:<agent>",
       prompt="<context + task>",
       run_in_background=true)
 ```
 
-sp-coder must use `isolation: "worktree"`.
+For code implementation tasks, use `isolation: "worktree"`.
 
 ### 5. Monitor
 
@@ -64,12 +68,7 @@ On timeout: TaskOutput(block=false) check → TaskStop if stuck → report to us
 ## Examples
 
 ```
-/sp-dispatch snapmaker-auth architect "分析认证模块安全性"
-/sp-dispatch Luban coder "修复 3D 渲染器内存泄漏"
-/sp-dispatch sm-nuxt3-website "更新首页 SEO"
+/sp-dispatch FamilyHub architect "分析认证模块安全性"
+/sp-dispatch postiz-app executor "修复内存泄漏"
+/sp-dispatch Cautia "更新 API 文档"
 ```
-
-## Notes
-
-- Background dispatch mandatory per PM rules
-- PM does not execute task, only dispatches and monitors

@@ -1,5 +1,5 @@
 {
-  "description": "SP governance hooks for multi-project portfolio management (v3 — allowlist model)",
+  "description": "SP governance hooks v8 — lightweight project boundary guards and safety hooks",
   "hooks": {
     "UserPromptSubmit": [
       {

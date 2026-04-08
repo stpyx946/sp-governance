@@ -247,8 +247,10 @@ async function main() {
     const rawCwd = data.cwd || process.cwd();
     const cwd = findPortfolioRoot(rawCwd);
 
-    // Skip if no portfolio.json (not an SP workspace)
-    if (!existsSync(join(cwd, 'portfolio.json'))) { passThrough(); return; }
+    // Skip if no portfolio.json (not an SP workspace) or SP disabled
+    if (!existsSync(join(cwd, 'portfolio.json')) || existsSync(join(cwd, '.sp-disabled'))) {
+      passThrough(); return;
+    }
 
     // 1. Detect destructive command
     const { destructive, label } = detectDestructive(command);

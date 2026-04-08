@@ -1,45 +1,28 @@
-# 角色权限矩阵
+# 角色权限参考 (v8 — 存档)
 
-> 本文件是治理体系的核心, 所有 Agent 启动时必须读取。修改本文件需要用户审批。
+> 本文件为 SP Governance v7 时代的角色权限矩阵存档。
+> v8 起，SP 不再定义专用 agents，所有 agent 工作由 OMC 体系承担。
+> 保留此文件作为权限设计参考。
 
-## 权限矩阵
+## OMC Agent 权限映射
 
-```
-操作 \ 角色        │ PM │ Group │ Cross │ Cross │ Team │ Arch │ Coder │ Reviewer │ Tester │ Doc
-                   │    │ Lead  │ Arch  │ Rev   │ Lead │      │       │          │        │ Eng
-───────────────────┼────┼───────┼───────┼───────┼──────┼──────┼───────┼──────────┼────────┼─────
-读取任意项目代码    │ ✓  │ 组内   │  ✓    │  ✓    │ 本项目│ 本项目│ 本项目 │  本项目   │ 本项目  │本项目
-写业务代码         │ ✗  │  ✗    │  ✗    │  ✗    │  ✗   │  ✗   │  ✓    │   ✗      │  ✗     │  ✗
-写测试代码         │ ✗  │  ✗    │  ✗    │  ✗    │  ✗   │  ✗   │  ✓    │   ✗      │  ✓     │  ✗
-写文档文件(.md)    │ ✗  │  ✓¹   │  ✗⁶   │  ✗    │  ✓³  │  ✗   │  ✗    │   ✗      │  ✗     │  ✓
-写配置文件         │ ✗  │  ✗    │  ✗    │  ✗    │  ✓   │  ✗   │  ✓    │   ✗      │  ✓⁴   │  ✗
-创建/修改团队任务   │ ✓  │  ✓    │ 仅修改 │ 仅修改│  ✓   │  ✗   │  ✗    │   ✗      │  ✗     │  ✗
-修改表结构/数据    │用户审批│ ✗  │  ✗    │  ✗    │  ✗   │  ✗   │用户审批│   ✗      │  ✗     │  ✗
-审查设计方案       │ ✗  │  ✓    │  ✓    │  ✓    │  ✗   │  ✗   │  ✗    │   ✓      │  ✗     │  ✗
-审查代码实现       │ ✗  │  ✗    │  ✗    │  ✓    │  ✗   │  ✗   │  ✗    │   ✓      │  ✗     │  ✗
-做架构/技术决策    │ ✗  │  ✓    │  ✓    │  ✗    │  ✗   │  ✓   │  ✗    │   ✗      │  ✗     │  ✗
-生成/释放团队成员  │ ✓  │  ✗    │  ✗    │  ✗    │  ✓   │  ✗   │  ✗    │   ✗      │  ✗     │  ✗
-跨项目操作        │ ✓  │ 组内   │  ✓    │  ✓    │  ✗   │  ✗   │  ✗    │   ✗      │  ✗     │  ✗
-更新 portfolio.json│ ✓  │  ✗    │  ✗    │  ✗    │  ✗   │  ✗   │  ✗    │   ✗      │  ✗     │  ✗
-更新 project-memory│ ✓  │  ✗    │  ✗    │  ✗    │  ✓   │  ✗⁷  │  ✗    │   ✗      │  ✗     │  ✗
+| 任务类型 | OMC Agent | 权限 |
+|----------|-----------|------|
+| 架构分析 (只读) | oh-my-claudecode:architect | Read-only |
+| 代码实现 | oh-my-claudecode:executor | Full write |
+| 代码审查 (只读) | oh-my-claudecode:code-reviewer | Read-only |
+| 测试编写 | oh-my-claudecode:test-engineer | Full write |
+| 文档编写 | oh-my-claudecode:writer | Write (.md) |
+| 安全审查 (只读) | oh-my-claudecode:security-reviewer | Read-only |
+| 调试修复 | oh-my-claudecode:debugger | Edit/Write |
 
-✓¹ = 仅限 groups/{group-name}/ 下的文档
-✓³ = 仅限项目管理类文档 (进度、任务分配)
-✓⁴ = 仅限测试配置文件
-✗⁶ = Cross-Architect 无 Edit/Write 工具，设计文档通过 SendMessage 输出，由 PM 持久化到 cross-groups/
-✗⁷ = Architect 无 Edit/Write 工具，架构决策通过 SendMessage 提交给 TeamLead 更新
-```
+## 项目边界守护
 
-## Agent 实际约束机制
+v8 的边界守护由 hooks 实现，而非 agent 角色约束：
 
-| 角色 | 实际约束机制 |
-|------|-------------|
-| sp-architect | disallowedTools: Edit/Write/Bash/NotebookEdit (框架物理执行) |
-| sp-reviewer | disallowedTools: Edit/Write/Bash/NotebookEdit (框架物理执行) |
-| sp-cross-architect | disallowedTools: Edit/Write/Bash/NotebookEdit (框架物理执行) |
-| sp-cross-reviewer | disallowedTools: Edit/Write/Bash/NotebookEdit (框架物理执行) |
-| sp-group-lead | disallowedTools: NotebookEdit; prompt 约束: 仅 groups/ 下文档 |
-| sp-coder | 无 disallowedTools; prompt 约束: 限本项目, worktree 隔离 |
-| sp-tester | 无 disallowedTools; prompt 约束: 限测试文件 |
-| sp-doc-engineer | disallowedTools: Bash; prompt 约束: 限 .md 文件 |
-| sp-team-lead | 无 disallowedTools; 管理操作自主, 代码操作派发给 Coder |
+| 守护层 | 机制 | 说明 |
+|--------|------|------|
+| 治理文件保护 | pm-guard hook | governance/ 和 agents/ 目录写入需用户审批 |
+| 危险命令拦截 | destructive-guard hook | rm -rf, git push --force 等被拦截 |
+| 项目上下文 | route-guard hook | 涉及已注册项目时注入上下文信息（不阻断）|
+| 子项目绕过 | 三个 guard 共同 | CWD 在已注册项目内时跳过所有 PM 层约束 |

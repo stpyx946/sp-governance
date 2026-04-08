@@ -1,10 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * SP PM Allowlist Guard — PreToolUse Hook (* matcher)
+ * SP PM Guard v3 — PreToolUse Hook (* matcher)
  *
- * Fail-closed allowlist model: only explicitly listed tools are permitted for PM.
- * Sub-agents and worktree sessions bypass this guard.
+ * Dual-role model based on CWD relative to portfolio.json location:
+ *   - CWD == portfolio root → PM role (fail-closed allowlist)
+ *   - CWD inside registered project → Team-Lead role (fail-closed, +WebFetch/WebSearch)
+ *
+ * Both roles share the same core restrictions:
+ *   - Write/Edit: only .md files + management paths (CLAUDE.md, .omc/, portfolio.json etc.)
+ *   - Bash: read-only allowlist only
+ *   - Business code / config files: must delegate to agent
+ *   - governance/ and agents/ modifications: require user approval
+ *
+ * Team-Lead additionally gets: WebFetch, WebSearch (external research)
  *
  * Output format: Claude Code PreToolUse hookSpecificOutput
  */
@@ -24,7 +33,7 @@ function deny(message) {
       hookEventName: 'PreToolUse',
       permissionDecision: 'deny',
       permissionDecisionReason: message,
-      additionalContext: `[SP PM Guard] ${message}`
+      additionalContext: `[SP Guard] ${message}`
     }
   }));
 }
@@ -37,108 +46,96 @@ function allowWithContext(message) {
   console.log(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
-      additionalContext: `[SP PM Guard] ${message}`
+      additionalContext: `[SP Guard] ${message}`
     }
   }));
 }
 
 // ---------------------------------------------------------------------------
-// PM Tool Allowlist
+// Shared allowlist (both PM and Team-Lead)
 // ---------------------------------------------------------------------------
 
-const PM_TOOL_ALLOWLIST = {
-  'Agent': { allowed: true },
-  'TaskCreate': { allowed: true },
-  'TaskList': { allowed: true },
-  'TaskGet': { allowed: true },
-  'TaskUpdate': { allowed: true },
-  'TaskOutput': { allowed: true },
-  'TaskStop': { allowed: true },
-  'TeamCreate': { allowed: true },
-  'TeamDelete': { allowed: true },
-  'SendMessage': { allowed: true },
-  'AskUserQuestion': { allowed: true },
-  'Skill': { allowed: true },
-  'EnterPlanMode': { allowed: true },
-  'ExitPlanMode': { allowed: true },
-  'EnterWorktree': { allowed: true },
-  'ExitWorktree': { allowed: true },
-  'CronCreate': { allowed: true },
-  'CronDelete': { allowed: true },
-  'CronList': { allowed: true },
-  'Read': { allowed: true, pathCheck: 'READ_CONSTRAINT' },
-  'Write': { allowed: true, pathCheck: 'WRITE_CONSTRAINT' },
-  'Edit': { allowed: true, pathCheck: 'WRITE_CONSTRAINT' },
-  'Bash': { allowed: true, commandCheck: 'BASH_ALLOWLIST' },
-  // OMC state/notepad/memory MCP tools
-  'mcp__plugin_oh-my-claudecode_t__state_read': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__state_write': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__state_clear': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__state_list_active': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__state_get_status': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__notepad_read': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__notepad_write_priority': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__notepad_write_working': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__notepad_write_manual': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__notepad_prune': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__notepad_stats': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__project_memory_read': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__project_memory_write': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__project_memory_add_note': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__project_memory_add_directive': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__session_search': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__trace_timeline': { allowed: true },
-  'mcp__plugin_oh-my-claudecode_t__trace_summary': { allowed: true },
-};
+const SHARED_ALLOWLIST = new Set([
+  // Core dispatch
+  'Agent', 'TaskCreate', 'TaskList', 'TaskGet', 'TaskUpdate', 'TaskOutput', 'TaskStop',
+  'TeamCreate', 'TeamDelete', 'SendMessage',
+  'AskUserQuestion', 'Skill', 'ToolSearch',
+  'EnterPlanMode', 'ExitPlanMode', 'EnterWorktree', 'ExitWorktree',
+  'CronCreate', 'CronDelete', 'CronList',
+  // Navigation (both roles need these)
+  'Glob', 'Grep', 'Read',
+  // Write with path constraints (checked separately)
+  'Write', 'Edit',
+  // Bash with command constraints (checked separately)
+  'Bash',
+  // OMC MCP tools
+  'mcp__plugin_oh-my-claudecode_t__state_read',
+  'mcp__plugin_oh-my-claudecode_t__state_write',
+  'mcp__plugin_oh-my-claudecode_t__state_clear',
+  'mcp__plugin_oh-my-claudecode_t__state_list_active',
+  'mcp__plugin_oh-my-claudecode_t__state_get_status',
+  'mcp__plugin_oh-my-claudecode_t__notepad_read',
+  'mcp__plugin_oh-my-claudecode_t__notepad_write_priority',
+  'mcp__plugin_oh-my-claudecode_t__notepad_write_working',
+  'mcp__plugin_oh-my-claudecode_t__notepad_write_manual',
+  'mcp__plugin_oh-my-claudecode_t__notepad_prune',
+  'mcp__plugin_oh-my-claudecode_t__notepad_stats',
+  'mcp__plugin_oh-my-claudecode_t__project_memory_read',
+  'mcp__plugin_oh-my-claudecode_t__project_memory_write',
+  'mcp__plugin_oh-my-claudecode_t__project_memory_add_note',
+  'mcp__plugin_oh-my-claudecode_t__project_memory_add_directive',
+  'mcp__plugin_oh-my-claudecode_t__session_search',
+  'mcp__plugin_oh-my-claudecode_t__trace_timeline',
+  'mcp__plugin_oh-my-claudecode_t__trace_summary',
+]);
+
+// Team-Lead exclusive: external research tools
+const TEAM_LEAD_EXTRA = new Set([
+  'WebFetch', 'WebSearch',
+]);
+
+// Tools that need path checking
+const PATH_CHECK_TOOLS = new Set(['Write', 'Edit']);
+
+// Tools that need command checking
+const CMD_CHECK_TOOLS = new Set(['Bash']);
 
 // ---------------------------------------------------------------------------
-// Path constraints
+// Write path constraints (shared by both roles)
 // ---------------------------------------------------------------------------
 
-const PM_WRITE_PATHS = [
+// Management paths both roles can write
+const WRITE_ALLOWED_PATHS = [
   'portfolio.json', 'groups/', 'cross-groups/', '.omc/',
   'templates/', '.sp-disabled', 'bootstrap-state.json',
   'CLAUDE.md', 'AGENTS.md', 'sp-governance/',
 ];
 
-const PM_WRITE_DENY = [
-  '.omc/state/pm-override',
+// Governance paths that need user approval (both roles)
+const WRITE_DENY_PATHS = [
+  'sp-governance/governance/',
+  'sp-governance/agents/',
 ];
 
-const SOURCE_CODE_EXTENSIONS = new Set([
-  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
-  '.py', '.pyx', '.go', '.rs',
-  '.java', '.kt', '.scala',
-  '.c', '.cpp', '.cc', '.h', '.hpp', '.cs',
-  '.vue', '.svelte', '.rb', '.php', '.swift', '.dart',
-]);
-
-const READ_EXCEPTION_PATHS = ['sp-governance/', 'governance/', '.omc/', 'templates/'];
-
-const CONFIG_FILES = new Set([
-  'package.json', 'pom.xml', 'build.gradle', 'Cargo.toml',
-  'go.mod', 'pyproject.toml', 'requirements.txt', 'composer.json',
-  'pubspec.yaml', 'tsconfig.json', 'nx.json', 'turbo.json',
-  'lerna.json', 'pnpm-workspace.yaml', '.gitignore',
-  'Makefile', 'CMakeLists.txt', 'Dockerfile', 'docker-compose.yml',
-  'CLAUDE.md', 'AGENTS.md', 'portfolio.json',
-]);
-
 // ---------------------------------------------------------------------------
-// Bash constraints
+// Bash constraints (shared by both roles)
 // ---------------------------------------------------------------------------
 
 const BASH_HARD_DENY = [
   /[>|]\s*[^|&]/, /\btee\b/, /\bsed\s+-i/, /\bawk\b.*>/, /\bperl\s+-[ip]/,
   /\bpython[23]?\s/, /\bnode\s+(?!--version)/, /\bcurl\s.*-[oO]/, /\bwget\b/,
+  /\bnpm\s+(run|start|exec|test|install|ci|build)\b/,
+  /\bpnpm\s+(run|start|exec|test|install|build)\b/,
+  /\byarn\s+(run|start|test|install|build)\b/,
 ];
 
 const BASH_ALLOWLIST = [
-  /^git\s+(status|log|branch|remote|diff|show|tag|rev-parse|describe)\b/,
+  /^git\s+(status|log|branch|remote|diff|show|tag|rev-parse|describe|fetch)\b/,
   /^ls(\s|$)/, /^pwd$/, /^wc\s/, /^file\s/, /^stat\s/, /^du\s/, /^df\s/,
   /^echo\s/, /^printf\s/, /^date/, /^whoami/, /^uname/,
   /^which\s/, /^type\s/, /^command\s/,
-  /^node\s+--version/, /^npm\s+(ls|list|outdated|view)\b/,
+  /^node\s+--version/, /^npm\s+(ls|list|outdated|view|--version)\b/,
+  /^pnpm\s+(ls|list|outdated|--version)\b/,
   /^mkdir\s+-p\s/, /^touch\s/, /^cp\s/,
   /^zip\s/, /^unzip\s/,
 ];
@@ -147,7 +144,7 @@ const BASH_ALLOWLIST = [
 // Audit logging
 // ---------------------------------------------------------------------------
 
-const MAX_AUDIT_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_AUDIT_SIZE = 5 * 1024 * 1024;
 const MAX_AUDIT_HISTORY = 3;
 
 function writeAuditLog(cwd, entry) {
@@ -155,13 +152,10 @@ function writeAuditLog(cwd, entry) {
     const logDir = join(cwd, '.omc', 'logs');
     mkdirSync(logDir, { recursive: true });
     const logPath = join(logDir, 'pm-audit.jsonl');
-
-    // Rotate if needed
     if (existsSync(logPath)) {
       try {
         const st = statSync(logPath);
         if (st.size > MAX_AUDIT_SIZE) {
-          // Shift old files
           for (let i = MAX_AUDIT_HISTORY; i >= 1; i--) {
             const older = `${logPath}.${i}`;
             const newer = i === 1 ? logPath : `${logPath}.${i - 1}`;
@@ -170,15 +164,35 @@ function writeAuditLog(cwd, entry) {
             }
           }
         }
-      } catch { /* ignore stat errors */ }
+      } catch { /* ignore */ }
     }
-
     appendFileSync(logPath, JSON.stringify(entry) + '\n');
   } catch { /* never fail on audit */ }
 }
 
 // ---------------------------------------------------------------------------
-// Check helpers
+// Sub-project detection
+// ---------------------------------------------------------------------------
+
+function getProjectForCwd(rawCwd, portfolioRoot) {
+  try {
+    const portfolioPath = join(portfolioRoot, 'portfolio.json');
+    if (!existsSync(portfolioPath)) return null;
+    const portfolio = JSON.parse(readFileSync(portfolioPath, 'utf-8'));
+    const projects = portfolio.projects || [];
+    const normRaw = resolve(rawCwd).replace(/\\/g, '/').toLowerCase();
+    const normRoot = resolve(portfolioRoot).replace(/\\/g, '/').toLowerCase();
+    if (normRaw === normRoot) return null;
+    for (const proj of projects) {
+      const projPath = resolve(portfolioRoot, proj.path).replace(/\\/g, '/').toLowerCase();
+      if (normRaw === projPath || normRaw.startsWith(projPath + '/')) return proj;
+    }
+  } catch { /* */ }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Path & command helpers
 // ---------------------------------------------------------------------------
 
 function toRelPath(filePath, cwd) {
@@ -192,63 +206,35 @@ function toRelPath(filePath, cwd) {
 
 function checkWritePath(filePath, cwd) {
   const rel = toRelPath(filePath, cwd);
-  if (rel.startsWith('..')) return { ok: false, reason: `PM 禁止写入工作区外路径: ${rel}` };
+  if (rel.startsWith('..')) return { ok: false, reason: `禁止写入工作区外路径: ${rel}` };
 
-  // Deny list takes priority
-  for (const d of PM_WRITE_DENY) {
-    if (rel.startsWith(d)) return { ok: false, reason: `PM 禁止写入 ${d}* (仅由 bootstrap-guard 管理)` };
+  // Governance deny (needs user approval)
+  for (const d of WRITE_DENY_PATHS) {
+    if (rel.startsWith(d)) return { ok: false, reason: `治理文件受保护: ${rel} (需用户明确审批)` };
   }
-
-  // Allow list
-  for (const p of PM_WRITE_PATHS) {
-    if (rel === p || rel === p.replace(/\/$/, '') || rel.startsWith(p)) return { ok: true };
-  }
-
-  return { ok: false, reason: `PM 禁止写入非管理路径: ${rel}` };
-}
-
-function checkReadPath(filePath, cwd) {
-  const rel = toRelPath(filePath, cwd);
 
   // Management paths always allowed
-  for (const p of PM_WRITE_PATHS) {
+  for (const p of WRITE_ALLOWED_PATHS) {
     if (rel === p || rel === p.replace(/\/$/, '') || rel.startsWith(p)) return { ok: true };
   }
 
-  // Exception paths allowed
-  for (const p of READ_EXCEPTION_PATHS) {
-    if (rel.startsWith(p)) return { ok: true };
-  }
+  // .md files allowed anywhere (plan/doc generation)
+  if (extname(rel).toLowerCase() === '.md') return { ok: true };
 
-  // Config files allowed
-  if (CONFIG_FILES.has(basename(rel))) return { ok: true };
-
-  // Source code extensions denied
-  const ext = extname(rel).toLowerCase();
-  if (SOURCE_CODE_EXTENSIONS.has(ext)) {
-    return { ok: false, reason: `PM 禁止读取源代码文件: ${rel} (请委派 agent)` };
-  }
-
-  // Everything else allowed
-  return { ok: true };
+  return { ok: false, reason: `禁止写入: ${rel} (业务代码/配置文件请委派 agent)` };
 }
 
 function checkBashCommand(command) {
   const trimmed = command.trim();
-
-  // Hard deny patterns
   for (const pat of BASH_HARD_DENY) {
     if (pat.test(trimmed)) {
-      return { ok: false, reason: `PM Bash 命令被拦截 (硬拒绝模式): ${trimmed.slice(0, 60)}` };
+      return { ok: false, reason: `Bash 命令被拦截: ${trimmed.slice(0, 60)} (构建/测试/执行请委派 agent)` };
     }
   }
-
-  // Allowlist check
   for (const pat of BASH_ALLOWLIST) {
     if (pat.test(trimmed)) return { ok: true };
   }
-
-  return { ok: false, reason: `PM Bash 命令不在 allowlist 中: ${trimmed.slice(0, 60)}` };
+  return { ok: false, reason: `Bash 命令不在 allowlist: ${trimmed.slice(0, 60)} (请委派 agent)` };
 }
 
 // ---------------------------------------------------------------------------
@@ -262,11 +248,11 @@ async function main() {
 
     let data = {};
     try { data = JSON.parse(input); } catch {
-      deny('SP PM Guard 输入解析失败 (fail-closed)');
+      deny('SP Guard 输入解析失败 (fail-closed)');
       return;
     }
 
-    // 1. Sub-agent bypass (highest priority)
+    // 1. Sub-agent bypass (highest priority — framework controls their tools)
     if (data.agent_id) { passThrough(); return; }
 
     // 2. Worktree bypass
@@ -280,7 +266,11 @@ async function main() {
       return;
     }
 
-    // 4. PM override check
+    // 4. Determine role: PM (at root) or Team-Lead (in sub-project)
+    const project = getProjectForCwd(rawCwd, cwd);
+    const role = project ? 'team-lead' : 'pm';
+
+    // 5. PM override check (PM temporarily gets full access)
     const sessionId = data.session_id || '';
     if (sessionId) {
       const overridePath = join(cwd, '.omc', 'state', `pm-override-${sessionId}.json`);
@@ -289,67 +279,67 @@ async function main() {
           const override = JSON.parse(readFileSync(overridePath, 'utf-8'));
           if (override.active) {
             const age = (Date.now() - new Date(override.timestamp).getTime()) / 1000;
-            const ttl = override.ttl_seconds || 120;
-            if (age < ttl) {
-              passThrough();
-              return;
-            }
+            if (age < (override.ttl_seconds || 120)) { passThrough(); return; }
           }
-        } catch { /* expired or corrupt, continue normal flow */ }
+        } catch { /* expired or corrupt */ }
       }
     }
 
     const toolName = data.tool_name || '';
     const toolInput = data.tool_input || {};
 
-    // 5. Allowlist check (fail-closed)
-    const entry = PM_TOOL_ALLOWLIST[toolName];
-    if (!entry || !entry.allowed) {
-      const reason = `PM 禁止使用工具: ${toolName} (未在 allowlist 中)`;
-      writeAuditLog(cwd, { ts: new Date().toISOString(), tool: toolName, action: 'DENY', reason, session: sessionId });
+    // 6. Allowlist check (fail-closed for both roles)
+    const inShared = SHARED_ALLOWLIST.has(toolName);
+    const inTeamLeadExtra = role === 'team-lead' && TEAM_LEAD_EXTRA.has(toolName);
+
+    if (!inShared && !inTeamLeadExtra) {
+      const reason = `[${role.toUpperCase()}] 禁止使用工具: ${toolName} (请委派 agent)`;
+      writeAuditLog(cwd, { ts: new Date().toISOString(), role, tool: toolName, action: 'DENY', reason, session: sessionId });
       deny(reason);
       return;
     }
 
-    // 6. Path constraint checks
-    if (entry.pathCheck === 'WRITE_CONSTRAINT') {
+    // 7. Write/Edit path constraint
+    if (PATH_CHECK_TOOLS.has(toolName)) {
       const filePath = toolInput.file_path || toolInput.path || '';
       const result = checkWritePath(filePath, cwd);
       if (!result.ok) {
-        writeAuditLog(cwd, { ts: new Date().toISOString(), tool: toolName, action: 'DENY', reason: result.reason, session: sessionId });
-        deny(result.reason);
+        const reason = `[${role.toUpperCase()}] ${result.reason}`;
+        writeAuditLog(cwd, { ts: new Date().toISOString(), role, tool: toolName, action: 'DENY', reason, session: sessionId });
+        deny(reason);
         return;
       }
     }
 
-    if (entry.pathCheck === 'READ_CONSTRAINT') {
-      const filePath = toolInput.file_path || toolInput.path || '';
-      const result = checkReadPath(filePath, cwd);
-      if (!result.ok) {
-        writeAuditLog(cwd, { ts: new Date().toISOString(), tool: toolName, action: 'DENY', reason: result.reason, session: sessionId });
-        deny(result.reason);
-        return;
-      }
-    }
-
-    // 7. Bash command check
-    if (entry.commandCheck === 'BASH_ALLOWLIST') {
+    // 8. Bash command constraint
+    if (CMD_CHECK_TOOLS.has(toolName)) {
       const command = toolInput.command || '';
       const result = checkBashCommand(command);
       if (!result.ok) {
-        writeAuditLog(cwd, { ts: new Date().toISOString(), tool: toolName, action: 'DENY', reason: result.reason, session: sessionId });
-        deny(result.reason);
+        const reason = `[${role.toUpperCase()}] ${result.reason}`;
+        writeAuditLog(cwd, { ts: new Date().toISOString(), role, tool: toolName, action: 'DENY', reason, session: sessionId });
+        deny(reason);
         return;
       }
     }
 
-    // 8. All checks passed
-    writeAuditLog(cwd, { ts: new Date().toISOString(), tool: toolName, action: 'ALLOW', session: sessionId });
-    passThrough();
+    // 9. Passed — inject role context
+    const ctx = project
+      ? `[Team-Lead: ${project.name}] (${project.tech_stack}, group: ${project.group})`
+      : '[PM]';
+    writeAuditLog(cwd, { ts: new Date().toISOString(), role, tool: toolName, action: 'ALLOW', session: sessionId });
+
+    // Only inject context on first tool call per message to reduce noise
+    // For high-frequency tools (Glob/Grep/Read), stay silent
+    if (['Agent', 'Write', 'Edit', 'Bash'].includes(toolName)) {
+      allowWithContext(`${ctx} ${toolName} 已放行`);
+    } else {
+      passThrough();
+    }
 
   } catch (e) {
     // fail-closed
-    deny(`SP PM Guard 内部错误: ${e.message || 'unknown'}`);
+    deny(`SP Guard 内部错误: ${e.message || 'unknown'}`);
   }
 }
 

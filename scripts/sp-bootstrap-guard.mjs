@@ -6,12 +6,13 @@
  * Checks bootstrap state on every user input, enforcing PM startup protocol.
  *
  * Flow:
- *   0. Runtime switch detection (关闭SP/启用SP/disable SP/enable SP)
+ *   0. Sub-project bypass (CWD inside registered project → skip)
+ *   0a. Runtime switch detection (关闭SP/启用SP/disable SP/enable SP)
  *   1. No portfolio.json → detect workspace, prompt user to enable SP
- *   2. Has portfolio.json but no bootstrap-state.json → force full bootstrap
- *   3. bootstrap-state.json corrupt → force rebuild
- *   4. last_full_diagnostic > 24h → force re-diagnosis
- *   5. Within 24h → silent pass-through (no context injected)
+ *   2. Has portfolio.json but no bootstrap-state.json → create state silently
+ *   3. bootstrap-state.json corrupt → recreate silently
+ *   4. last_full_diagnostic > 7 days → auto-refresh state, lightweight reminder
+ *   5. Within 7 days → silent pass-through (no context injected)
  *
  * Cross-platform: Windows / Linux / macOS
  *
@@ -19,7 +20,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { readStdin } from './lib/stdin.mjs';
 import { findPortfolioRoot } from './lib/portfolio.mjs';
 
@@ -54,6 +55,22 @@ async function main() {
     const cwd = findPortfolioRoot(rawCwd);
     const portfolioPath = join(cwd, 'portfolio.json');
     const statePath = join(cwd, '.omc', 'bootstrap-state.json');
+
+    // ===== Sub-project bypass: inside a registered project → skip PM bootstrap =====
+    if (existsSync(portfolioPath)) {
+      try {
+        const normRaw = resolve(rawCwd).replace(/\\/g, '/').toLowerCase();
+        const normRoot = resolve(cwd).replace(/\\/g, '/').toLowerCase();
+        if (normRaw !== normRoot) {
+          const pf = JSON.parse(readFileSync(portfolioPath, 'utf-8'));
+          const isInProject = (pf.projects || []).some(p => {
+            const pp = resolve(cwd, p.path).replace(/\\/g, '/').toLowerCase();
+            return normRaw === pp || normRaw.startsWith(pp + '/');
+          });
+          if (isInProject) { passThrough(); return; }
+        }
+      } catch { /* continue normal flow */ }
+    }
 
     // ===== 0. Runtime switch detection (highest priority) =====
     const prompt = (data.prompt || data.message || '').toLowerCase();
@@ -144,14 +161,20 @@ async function main() {
 
     // ===== 2. Has portfolio.json — normal bootstrap flow =====
 
-    // 2a. No bootstrap-state.json → force full bootstrap
+    // 2a. No bootstrap-state.json → create minimal state silently, no diagnostic required
     if (!existsSync(statePath)) {
-      emit(
-        'BOOTSTRAP_REQUIRED',
-        'bootstrap-state.json 不存在。你必须先执行完整启动流程: '
-          + '自诊断 (agents/10 + governance/5 + 项目目录 + .omc 完整性) → '
-          + '漂移检测 → 状态持久化。完成前禁止处理用户任务。'
-      );
+      try {
+        mkdirSync(join(cwd, '.omc'), { recursive: true });
+        writeFileSync(statePath, JSON.stringify({
+          last_full_diagnostic: new Date().toISOString(),
+          version: 'auto-created',
+          projects_count: (() => {
+            try { return JSON.parse(readFileSync(portfolioPath, 'utf-8')).projects?.length || 0; }
+            catch { return 0; }
+          })()
+        }));
+      } catch { /* non-critical */ }
+      passThrough();
       return;
     }
 
@@ -160,27 +183,36 @@ async function main() {
     try {
       state = JSON.parse(readFileSync(statePath, 'utf-8'));
     } catch {
-      emit(
-        'BOOTSTRAP_REQUIRED',
-        'bootstrap-state.json 损坏。必须重建并执行完整启动。'
-      );
+      // Corrupt → recreate silently
+      try {
+        writeFileSync(statePath, JSON.stringify({
+          last_full_diagnostic: new Date().toISOString(),
+          version: 'auto-recreated'
+        }));
+      } catch { /* non-critical */ }
+      passThrough();
       return;
     }
 
-    // 2c. Check staleness
+    // 2c. Check staleness (7-day threshold instead of 24h)
     const lastCheck = new Date(state.last_full_diagnostic || 0);
     const hoursAgo = (Date.now() - lastCheck.getTime()) / (1000 * 60 * 60);
+    const STALE_HOURS = 168; // 7 days
 
-    if (hoursAgo > 24) {
+    if (hoursAgo > STALE_HOURS) {
+      // Auto-refresh state, emit lightweight reminder only
+      try {
+        state.last_full_diagnostic = new Date().toISOString();
+        writeFileSync(statePath, JSON.stringify(state));
+      } catch { /* non-critical */ }
       emit(
-        'BOOTSTRAP_STALE',
-        '上次完整诊断距今 ' + Math.floor(hoursAgo) + ' 小时，超过 24h 阈值。'
-          + '必须执行完整启动: 自诊断 → 漂移检测 → 状态持久化。完成前禁止处理用户任务。'
+        'BOOTSTRAP_REFRESHED',
+        'SP 治理状态已自动刷新 (距上次 ' + Math.floor(hoursAgo / 24) + ' 天)。portfolio.json 已加载。'
       );
       return;
     }
 
-    // 2d. Within 24h — silent pass-through, no context injected
+    // 2d. Within threshold — silent pass-through, no context injected
     passThrough();
   } catch {
     // On any error, allow continuation — never block
