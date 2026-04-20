@@ -429,3 +429,86 @@ Phase 5: 部署
 - java_maven → `docker-compose up -d` 或用户指定
 - nextjs → `npm run deploy` 或 `wrangler deploy`
 - 未知 → 询问用户
+
+## 十、三层集成工作流 (v9)
+
+### OMC 编排集成
+
+当 OMC 可用时（.sp/integration.json 中 omc.detected = true），任务派发遵循以下规则：
+
+#### Agent 路由
+- SP 角色通过 omc-agent-map.json 映射到 OMC Agent
+- architect → oh-my-claudecode:architect (opus)
+- executor → oh-my-claudecode:executor (sonnet)
+- code-reviewer → oh-my-claudecode:code-reviewer (opus)
+- 完整映射见 scripts/adapters/omc-agent-map.json
+
+#### 执行模式路由
+- Express 通道 (<=3 文件): 直接派 Agent，不启动 OMC 模式
+- Standard 通道 (<=10 文件): OMC autopilot
+- Full 通道 (>10 文件): OMC team
+- 跨项目: OMC ultrawork
+- 紧急修复: OMC ralph
+- 规划任务: OMC ralplan
+
+#### OMC 不可用降级
+- SP 直接调用 Agent 工具，串行执行
+- 使用 sp_skill_fallback 中指定的 SP Skill 替代
+
+### ECC 质量集成
+
+当 ECC 可用时（.sp/integration.json 中 ecc.detected = true），工作流增加以下质量保障：
+
+#### Phase 1 设计阶段
+- Architect Agent prompt 中注入项目对应的 ECC 编码规范 (rules)
+- 规范来源: ecc-rules-map.json 中 techStack 映射的 rules 目录
+
+#### Phase 2 实现阶段
+- Coder Agent 编辑文件后，ECC quality hooks 自动触发:
+  - post:edit:accumulator 累积编辑文件
+  - stop:format-typecheck 批量 lint + typecheck
+- ECC Hook Profile 设置为 standard，禁用与 SP 重叠的 GateGuard
+- SP Skill 执行时附加 ECC 领域知识 (ecc-skill-augment.json 映射)
+
+#### Phase 3 代码审查阶段
+- Reviewer Agent prompt 中注入 ECC rules/common/code-review.md 和 security.md 标准
+- 如果项目有对应语言规则，同时注入语言特化标准
+
+#### Phase 3.5 验收质量关
+- Gate 1 构建: 使用 SP sp-node-build/sp-java-build 等 + ECC 构建规范
+- Gate 2 测试: 使用 SP sp-jest/sp-vitest 等 + ECC tdd-workflow 知识
+- Gate 3 运行: 标准验收
+- Gate 4 回归: 确认 ECC format-typecheck 无新增错误
+
+#### ECC 不可用降级
+- Agent 按内置知识工作，无外部编码规范
+- SP Skill 独立运行，无 ECC 知识增强
+- 手动调用 sp-lint/sp-typecheck 替代自动质量门禁
+
+### Skill 增强映射
+
+以下 SP Skill 在执行时会自动附加 ECC 领域知识:
+
+| SP Skill | ECC 增强 | 注入方式 |
+|----------|---------|---------|
+| sp-jest | tdd-workflow | 上下文 |
+| sp-vitest | tdd-workflow | 上下文 |
+| sp-pytest | tdd-workflow + python-patterns | 上下文 |
+| sp-code-review | security-review | 检查清单 |
+| sp-arch-analysis | backend-patterns + hexagonal-architecture | 参考 |
+| sp-deploy-check | deployment-patterns + docker-patterns | 检查清单 |
+| sp-node-build | frontend-patterns | 上下文 |
+| sp-typecheck | typescript-patterns | 参考 |
+| sp-lint | coding-standards | 参考 |
+| sp-playwright | e2e-testing | 上下文 |
+
+增强机制: Route Guard 检测到涉及项目时，自动从 ECC 读取对应 Skill 的 SKILL.md 内容，拼接到 Agent prompt 中。ECC Skill 不存在时静默跳过。
+
+### 持续学习集成
+
+当 ECC continuous-learning 可用时:
+- 会话中: ECC pre:observe + post:observe 自动捕获工具使用模式
+- 会话后: ECC stop:evaluate-session 提取可复用模式
+- 下次会话: ECC session:start 注入学习成果
+- SP 侧无需额外配置，ECC 学习机制独立运行
+- 学习数据存储在 ECC 管理的 ~/.claude/homunculus/ 目录

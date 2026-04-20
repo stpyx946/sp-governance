@@ -1,0 +1,59 @@
+{
+  "_meta": {
+    "description": "SP 治理角色 → OMC Agent 映射",
+    "fallback": "当 OMC 不可用时，SP skill 独立执行",
+    "last_verified": "2026-04-15"
+  },
+  "mappings": {
+    "architect": {
+      "omc_agent": "oh-my-claudecode:architect",
+      "model": "opus",
+      "sp_skill_fallback": "sp-arch-analysis"
+    },
+    "executor": {
+      "omc_agent": "oh-my-claudecode:executor",
+      "model": "sonnet",
+      "sp_skill_fallback": null
+    },
+    "code-reviewer": {
+      "omc_agent": "oh-my-claudecode:code-reviewer",
+      "model": "opus",
+      "sp_skill_fallback": "sp-code-review"
+    },
+    "debugger": {
+      "omc_agent": "oh-my-claudecode:debugger",
+      "model": "sonnet",
+      "sp_skill_fallback": null
+    },
+    "verifier": {
+      "omc_agent": "oh-my-claudecode:verifier",
+      "model": "sonnet",
+      "sp_skill_fallback": null
+    },
+    "test-engineer": {
+      "omc_agent": "oh-my-claudecode:test-engineer",
+      "model": "sonnet",
+      "sp_skill_fallback": "sp-jest"
+    },
+    "build-fixer": {
+      "omc_agent": "oh-my-claudecode:build-fixer",
+      "model": "sonnet",
+      "sp_skill_fallback": "sp-node-build"
+    },
+    "security-reviewer": {
+      "omc_agent": "oh-my-claudecode:security-reviewer",
+      "model": "sonnet",
+      "sp_skill_fallback": "sp-code-review"
+    },
+    "writer": {
+      "omc_agent": "oh-my-claudecode:writer",
+      "model": "haiku",
+      "sp_skill_fallback": null
+    },
+    "explore": {
+      "omc_agent": "oh-my-claudecode:explore",
+      "model": "haiku",
+      "sp_skill_fallback": null
+    }
+  }
+}

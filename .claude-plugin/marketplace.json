@@ -9,7 +9,7 @@
     {
       "name": "sp-governance",
       "description": "Multi-project portfolio governance plugin - role-based constraints, bootstrap protocol, and project-level management for Claude Code",
-      "version": "7.1.0",
+      "version": "9.0.0",
       "author": {
         "name": "leosyli"
       },
@@ -23,5 +23,5 @@
       ]
     }
   ],
-  "version": "7.1.0"
+  "version": "9.0.0"
 }

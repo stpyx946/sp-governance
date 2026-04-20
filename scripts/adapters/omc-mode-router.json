@@ -1,0 +1,50 @@
+{
+  "_meta": {
+    "description": "任务特征 → OMC 执行模式推荐",
+    "fallback": "无 OMC 时 SP 使用普通 Agent 串行执行"
+  },
+  "rules": [
+    {
+      "condition": "single_project_simple",
+      "max_files": 3,
+      "sp_channel": "express",
+      "omc_mode": null,
+      "description": "SP 直接派 Agent，不启动 OMC 模式"
+    },
+    {
+      "condition": "single_project_standard",
+      "max_files": 10,
+      "sp_channel": "standard",
+      "omc_mode": "autopilot",
+      "description": "OMC autopilot 自主执行"
+    },
+    {
+      "condition": "single_project_complex",
+      "max_files": null,
+      "sp_channel": "full",
+      "omc_mode": "team",
+      "description": "OMC team 多 Agent 协作"
+    },
+    {
+      "condition": "cross_project",
+      "max_files": null,
+      "sp_channel": "full",
+      "omc_mode": "ultrawork",
+      "description": "OMC ultrawork 最大并行"
+    },
+    {
+      "condition": "hotfix",
+      "max_files": null,
+      "sp_channel": "hotfix",
+      "omc_mode": "ralph",
+      "description": "OMC ralph 持续循环直到完成"
+    },
+    {
+      "condition": "planning",
+      "max_files": null,
+      "sp_channel": null,
+      "omc_mode": "ralplan",
+      "description": "OMC 共识规划，SP 不介入"
+    }
+  ]
+}

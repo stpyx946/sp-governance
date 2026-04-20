@@ -34,6 +34,15 @@ pytest
 pytest -v --tb=short
 ```
 
+## ECC 增强
+
+当 ECC 可用时，本 Skill 执行前会自动注入以下 ECC 领域知识:
+- **tdd-workflow**: TDD 工作流最佳实践
+- **python-patterns**: Python 编码模式与惯用法
+
+注入方式: 上下文 (context) — 编写 Python 测试时参考最佳实践。
+ECC 不可用时本 Skill 独立运行，功能不受影响。
+
 ## Notes
 - 执行角色: sp-tester
 - 权限约束: sp-tester 拥有全权限

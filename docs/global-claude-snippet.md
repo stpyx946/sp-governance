@@ -1,12 +1,20 @@
-# SP Governance (Lite) — v8.0.0
+# SP Governance — v9.0.0
 
-> 轻量多项目治理层。Agents 统一使用 OMC (`oh-my-claudecode:*`)。
+> 三层架构多项目治理层。Agents 统一使用 OMC (`oh-my-claudecode:*`)。
 
 ## 激活条件
 
 - 工作空间存在 `portfolio.json` → SP 治理激活
 - 子项目目录内 → 所有 SP hooks 自动跳过
 - 禁用: 创建 `.sp-disabled` 标记文件
+
+## 三层架构
+
+| 层 | 组件 | 职责 |
+|----|------|------|
+| 治理层 | SP Governance | 项目注册、边界守护、安全防护、集成协调 |
+| 执行层 | OMC (oh-my-claudecode) | Agent 编排、任务执行、并行调度 |
+| 质量层 | ECC (everything-claude-code) | 规则学习、质量门禁、持续改进（可选） |
 
 ## Agent 使用
 

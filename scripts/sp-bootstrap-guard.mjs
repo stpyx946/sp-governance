@@ -24,6 +24,14 @@ import { join, resolve } from 'path';
 import { readStdin } from './lib/stdin.mjs';
 import { findPortfolioRoot } from './lib/portfolio.mjs';
 
+let findIntegrationState, refreshIntegrationState, writeIntegrationState, getHookEnvironment;
+try {
+  ({ findIntegrationState, refreshIntegrationState, writeIntegrationState } = await import('./lib/integration.mjs'));
+} catch { /* integration.mjs 不存在时静默忽略 */ }
+try {
+  ({ getHookEnvironment } = await import('./adapters/ecc-adapter.mjs'));
+} catch { /* ecc-adapter.mjs 不存在时静默忽略 */ }
+
 function passThrough() {
   console.log(JSON.stringify({ continue: true, suppressOutput: true }));
 }
@@ -115,6 +123,64 @@ async function main() {
           timestamp: new Date().toISOString(),
           ttl_seconds: 120
         }));
+      }
+    }
+
+    // === 集成状态管理 (P4 优先级) ===
+    // 仅在 portfolio.json 存在时才执行
+    if (existsSync(portfolioPath)) {
+      try {
+        if (findIntegrationState && refreshIntegrationState) {
+          let integrationState = findIntegrationState(cwd);
+          const now = Date.now();
+
+          // 集成状态不存在或过期(>24h) → 刷新
+          if (!integrationState || !integrationState.last_compat_check ||
+              (now - new Date(integrationState.last_compat_check).getTime()) > 86400000) {
+            integrationState = refreshIntegrationState(cwd);
+          }
+
+          // 设置 ECC Hook 环境变量（如果 ECC 可用）
+          if (integrationState?.integrations?.ecc?.detected) {
+            try {
+              if (getHookEnvironment) {
+                const hookEnv = getHookEnvironment();
+                if (hookEnv.ECC_HOOK_PROFILE) {
+                  process.env.ECC_HOOK_PROFILE = hookEnv.ECC_HOOK_PROFILE;
+                }
+                if (hookEnv.ECC_DISABLED_HOOKS) {
+                  // M2: 去重 + 格式白名单过滤
+                  const HOOK_ID_PATTERN = /^[a-zA-Z0-9_:-]+$/;
+                  const existing = process.env.ECC_DISABLED_HOOKS || '';
+                  const allHooks = [...new Set(
+                    [...(existing || '').split(','), ...(hookEnv.ECC_DISABLED_HOOKS || '').split(',')]
+                      .map(s => s.trim())
+                      .filter(Boolean)
+                  )];
+                  const validHooks = allHooks.filter(id => HOOK_ID_PATTERN.test(id));
+                  process.env.ECC_DISABLED_HOOKS = validHooks.join(',');
+                }
+
+                // H1: 持久化 ecc hook 配置到 integration state
+                if (writeIntegrationState) {
+                  try {
+                    const currentState = findIntegrationState(cwd) || integrationState || {};
+                    currentState.ecc_hook_config = {
+                      profile_path: process.env.ECC_HOOK_PROFILE || null,
+                      disabled_hooks: (process.env.ECC_DISABLED_HOOKS || '').split(',').filter(Boolean)
+                    };
+                    writeIntegrationState(cwd, currentState);
+                  } catch { /* 持久化失败不影响核心流程 */ }
+                }
+              }
+            } catch { /* ECC adapter 加载失败不影响核心流程 */ }
+          }
+
+          // 首次检测到集成变化时，通过 additionalContext 通知一次
+          // 后续静默运行（不每次都输出）
+        }
+      } catch {
+        // 集成检测失败不影响核心 Guard 功能
       }
     }
 

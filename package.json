@@ -1,6 +1,6 @@
 {
   "name": "sp-governance",
-  "version": "8.0.0",
+  "version": "9.0.0",
   "private": true,
   "type": "module",
   "description": "多项目 Portfolio 治理插件 (Claude Code plugin, hooks + agents)",
@@ -9,5 +9,20 @@
     "playwright": "^1.50.0",
     "marked": "^15.0.0",
     "turndown": "^7.0.0"
+  },
+  "sp_integrations": {
+    "oh-my-claudecode": {
+      "min_version": "1.0.0",
+      "max_tested": "2.5.0",
+      "required": false
+    },
+    "everything-claude-code": {
+      "min_version": "1.8.0",
+      "max_tested": "1.10.0",
+      "required": false,
+      "known_breaks": {
+        "2.0.0": "ECC 2.0 Rust 重写，需重新验证适配层"
+      }
+    }
   }
 }

@@ -20,6 +20,27 @@ import { join, resolve } from 'path';
 import { readStdin } from './lib/stdin.mjs';
 import { findPortfolioRoot } from './lib/portfolio.mjs';
 
+let buildRulesContext = null;
+let isECCAvailable = null;
+try {
+  const eccAdapter = await import('./adapters/ecc-adapter.mjs');
+  buildRulesContext = eccAdapter.buildRulesContext;
+  isECCAvailable = eccAdapter.isECCAvailable;
+} catch { /* ECC adapter 不可用，跳过规则注入 */ }
+
+let resolveAgent = null;
+let isOMCAvailable = null;
+try {
+  const omcAdapter = await import('./adapters/omc-adapter.mjs');
+  resolveAgent = omcAdapter.resolveAgent;
+  isOMCAvailable = omcAdapter.isOMCAvailable;
+} catch { /* OMC adapter 不可用，跳过 agent 推荐 */ }
+
+function matchProjectName(text, name) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|[\\s/\\\\:,."'(\\[])${escaped}(?:$|[\\s/\\\\:,."')\\]])`, 'i').test(text);
+}
+
 function allow() {
   console.log(JSON.stringify({ continue: true, suppressOutput: true }));
 }
@@ -105,9 +126,63 @@ async function main() {
       `${p.name} (${p.tech_stack}/${p.framework}, group: ${p.group}, level: ${p.level})`
     ).join('; ');
 
-    allowWithContext(
-      `[SP Context] 涉及项目: ${info}。请确保修改在对应项目目录范围内。`
-    );
+    let additionalContext = `[SP Context] 涉及项目: ${info}。请确保修改在对应项目目录范围内。`;
+
+    // === ECC 编码规范注入 ===
+    if (buildRulesContext && isECCAvailable) {
+      try {
+        const eccStatus = isECCAvailable(cwd);
+        if (eccStatus.available && eccStatus.path) {
+          const agentPrompt = toolInput.prompt || '';
+          const matchedProject = portfolio.projects?.find(p =>
+            matchProjectName(agentPrompt, p.name)
+          );
+          if (matchedProject?.tech_stack) {
+            const rulesCtx = buildRulesContext(matchedProject.tech_stack, eccStatus.path);
+            if (rulesCtx) {
+              additionalContext += '\n' + rulesCtx;
+            }
+          }
+        }
+      } catch { /* ECC 规则注入失败不影响路由 */ }
+    }
+
+    // === OMC Agent 推荐注入 ===
+    if (resolveAgent && isOMCAvailable) {
+      try {
+        const omcStatus = isOMCAvailable(cwd);
+        if (omcStatus.available) {
+          // 从 prompt 中推断 SP 角色关键词，映射到 OMC agent
+          const agentPrompt = (toolInput.prompt || '').toLowerCase();
+          const roleKeywords = [
+            ['architect', '架构'],
+            ['executor', '实现', '开发', '编码'],
+            ['code-reviewer', '审查', 'review'],
+            ['test-engineer', '测试', 'test'],
+            ['debugger', '调试', 'debug'],
+            ['writer', '文档', 'doc'],
+            ['security-reviewer', '安全', 'security'],
+            ['explore', '搜索', '查找', 'explore'],
+            ['planner', '规划', 'plan'],
+          ];
+          let detectedRole = null;
+          for (const [role, ...keywords] of roleKeywords) {
+            if (keywords.some(kw => agentPrompt.includes(kw))) {
+              detectedRole = role;
+              break;
+            }
+          }
+          if (detectedRole) {
+            const resolved = resolveAgent(detectedRole);
+            if (resolved.omc_agent) {
+              additionalContext += `\n[SP-OMC] 推荐 OMC Agent: ${resolved.omc_agent} (model: ${resolved.model})`;
+            }
+          }
+        }
+      } catch { /* OMC agent 推荐失败不影响路由 */ }
+    }
+
+    allowWithContext(additionalContext);
   } catch {
     // On any error, allow — never block
     console.log(JSON.stringify({ continue: true, suppressOutput: true }));

@@ -1,5 +1,5 @@
 {
-  "description": "SP governance hooks v8 — lightweight project boundary guards and safety hooks",
+  "description": "SP governance hooks v9 — three-layer architecture with project boundary guards and safety hooks",
   "hooks": {
     "UserPromptSubmit": [
       {

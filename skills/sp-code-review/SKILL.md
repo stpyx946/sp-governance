@@ -32,6 +32,14 @@ triggers:
 ### 3. 输出报告
 按严重程度分级列出问题和改进建议。
 
+## ECC 增强
+
+当 ECC 可用时，本 Skill 执行前会自动注入以下 ECC 领域知识:
+- **security-review**: 安全审查检查清单（OWASP Top 10、输入验证、认证授权）
+
+注入方式: 检查清单 (checklist) — 审查时逐项对照安全清单。
+ECC 不可用时本 Skill 独立运行，功能不受影响。
+
 ## Notes
 - 执行角色: sp-reviewer
 - 权限约束: sp-reviewer 禁止 Edit/Write/Bash，仅输出报告

@@ -36,6 +36,14 @@ npm install
 npm run build
 ```
 
+## ECC 增强
+
+当 ECC 可用时，本 Skill 执行前会自动注入以下 ECC 领域知识:
+- **frontend-patterns**: 前端构建优化模式（Tree-shaking、代码分割、缓存策略）
+
+注入方式: 上下文 (context) — 构建优化参考。
+ECC 不可用时本 Skill 独立运行，功能不受影响。
+
 ## Notes
 - 执行角色: sp-coder (构建), sp-tester (测试构建)
 - 权限约束: sp-coder 需 worktree 隔离

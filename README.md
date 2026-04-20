@@ -1,10 +1,10 @@
-# SP Governance Plugin (Lite)
+# SP Governance Plugin
 
-轻量多项目治理层，为 Claude Code 提供项目边界守护和安全防护。
+三层架构多项目治理层，为 Claude Code 提供项目边界守护、安全防护，并与 OMC 执行层和 ECC 质量层协作。
 
-SP Governance v8 不再定义专用 agents 或 PM 角色约束。所有 agent 工作统一使用 OMC (`oh-my-claudecode:*`)，SP 仅负责项目注册、边界守护和危险操作拦截。
+SP Governance v9 采用三层架构（SP 治理层 / OMC 执行层 / ECC 质量层），废弃所有 `sp-governance:sp-*` agents，统一使用 OMC agents (`oh-my-claudecode:*`)。SP 负责项目注册、边界守护、危险操作拦截和集成协调。
 
-**版本**: 8.0.0 | **作者**: leosyli | **许可证**: UNLICENSED
+**版本**: 9.0.0 | **作者**: leosyli | **许可证**: UNLICENSED
 
 ---
 
@@ -45,6 +45,23 @@ node ~/.claude/plugins/sp-governance/scripts/sp-install-claudemd.mjs
 ---
 
 ## 架构概览
+
+### 三层架构
+
+```
+┌─────────────────────────────────────────┐
+│  SP 治理层 (sp-governance)              │
+│  项目注册 · 边界守护 · 安全防护 · 集成协调  │
+├─────────────────────────────────────────┤
+│  OMC 执行层 (oh-my-claudecode)          │
+│  Agent 编排 · 任务执行 · 并行调度         │
+├─────────────────────────────────────────┤
+│  ECC 质量层 (everything-claude-code)     │
+│  规则学习 · 质量门禁 · 持续改进（可选）     │
+└─────────────────────────────────────────┘
+```
+
+运行模式: `full` (三层完整) / `sp-omc` (SP+OMC) / `sp-ecc` (SP+ECC) / `sp-only` (纯治理)
 
 ### Hook 流程
 
@@ -96,7 +113,7 @@ sp-governance/
 
 ## Agent 使用
 
-v8 起统一使用 OMC agents：
+v9 起统一使用 OMC agents（v7 的 `sp-governance:sp-*` agents 已废弃）：
 
 | 任务 | OMC Agent |
 |------|-----------|
@@ -110,7 +127,7 @@ v8 起统一使用 OMC agents：
 | 代码搜索 | `oh-my-claudecode:explore` |
 | 方案规划 | `oh-my-claudecode:planner` |
 
-v7 的 `sp-governance:sp-*` agents 已归档至 `agents/_archived/`。
+v7 的 `sp-governance:sp-*` agents 已废弃并归档至 `agents/_archived/`。迁移详情见 [MIGRATION.md](MIGRATION.md)。
 
 ---
 
@@ -157,8 +174,11 @@ v7 的 `sp-governance:sp-*` agents 已归档至 `agents/_archived/`。
 
 | 版本 | 说明 |
 |------|------|
+| 9.0.0 | 三层架构：废弃 SP agents，引入 OMC 执行层 + ECC 质量层集成，新增 5 个集成 skill |
 | 8.0.0 | 轻量化重构：去掉 PM 角色限制和 SP agents，统一使用 OMC agents，子项目自动跳过 |
 | 7.3.x | PM fail-closed allowlist 模型，9 个专用 agents，24h 强制诊断 |
+
+详细变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 

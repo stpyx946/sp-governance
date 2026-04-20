@@ -1,0 +1,59 @@
+{
+  "_meta": {
+    "description": "SP Skill 执行时可附加的 ECC 领域知识",
+    "mode": "optional — ECC skill 不存在时 SP skill 独立运行",
+    "last_verified": "2026-04-15"
+  },
+  "augmentations": {
+    "sp-jest": {
+      "ecc_skills": ["tdd-workflow"],
+      "inject_as": "context",
+      "prompt_prefix": "在执行测试前，参考以下 TDD 工作流最佳实践:"
+    },
+    "sp-vitest": {
+      "ecc_skills": ["tdd-workflow"],
+      "inject_as": "context",
+      "prompt_prefix": "在执行测试前，参考以下 TDD 工作流最佳实践:"
+    },
+    "sp-pytest": {
+      "ecc_skills": ["tdd-workflow", "python-patterns"],
+      "inject_as": "context",
+      "prompt_prefix": "在执行 Python 测试前，参考以下实践:"
+    },
+    "sp-code-review": {
+      "ecc_skills": ["security-review"],
+      "inject_as": "checklist",
+      "prompt_prefix": "审查时同时检查以下安全清单:"
+    },
+    "sp-arch-analysis": {
+      "ecc_skills": ["backend-patterns", "hexagonal-architecture"],
+      "inject_as": "reference",
+      "prompt_prefix": "架构分析时参考以下模式:"
+    },
+    "sp-deploy-check": {
+      "ecc_skills": ["deployment-patterns", "docker-patterns"],
+      "inject_as": "checklist",
+      "prompt_prefix": "部署检查时参考以下清单:"
+    },
+    "sp-node-build": {
+      "ecc_skills": ["frontend-patterns"],
+      "inject_as": "context",
+      "prompt_prefix": "构建优化参考:"
+    },
+    "sp-typecheck": {
+      "ecc_skills": ["typescript-patterns"],
+      "inject_as": "reference",
+      "prompt_prefix": "类型修复参考:"
+    },
+    "sp-lint": {
+      "ecc_skills": ["coding-standards"],
+      "inject_as": "reference",
+      "prompt_prefix": "代码规范参考:"
+    },
+    "sp-playwright": {
+      "ecc_skills": ["e2e-testing"],
+      "inject_as": "context",
+      "prompt_prefix": "E2E 测试最佳实践:"
+    }
+  }
+}

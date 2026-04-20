@@ -1,4 +1,4 @@
-# sp-governance Plugin Installation
+# sp-governance Plugin Installation (v9.0.0)
 
 ## Prerequisites
 
@@ -8,7 +8,7 @@
 
 ```bash
 # 1. Unzip plugin to marketplace directory
-unzip sp-governance-v7.1.zip -d ~/.claude/plugins/marketplaces/sp-governance/
+unzip sp-governance-v9.0.0.zip -d ~/.claude/plugins/marketplaces/sp-governance/
 
 # 2. Register as local marketplace
 claude plugin marketplace add ~/.claude/plugins/marketplaces/sp-governance

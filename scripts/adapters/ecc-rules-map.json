@@ -1,0 +1,26 @@
+{
+  "_meta": {
+    "description": "portfolio.json techStack → ECC rules 目录",
+    "ecc_rules_base": "{ecc_path}/rules/",
+    "fallback": "找不到对应目录时仅加载 common/",
+    "last_verified": "2026-04-15"
+  },
+  "common": "common/",
+  "mappings": {
+    "vue": ["typescript/", "web/"],
+    "react": ["typescript/", "web/"],
+    "python": ["python/"],
+    "go": ["golang/"],
+    "nodejs": ["typescript/"],
+    "nodejs_express": ["typescript/"],
+    "java": ["java/"],
+    "kotlin": ["kotlin/"],
+    "rust": ["rust/"],
+    "swift": ["swift/"],
+    "cpp": ["cpp/"],
+    "csharp": ["csharp/"],
+    "dart": ["dart/"],
+    "php": ["php/"],
+    "perl": ["perl/"]
+  }
+}

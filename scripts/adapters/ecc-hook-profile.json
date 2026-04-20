@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "description": "SP 环境下 ECC Hook 的 Profile 和禁用配置",
+    "applied_via": "Bootstrap Guard 设置环境变量"
+  },
+  "profile": "standard",
+  "disabled_hooks": {
+    "always": [
+      "pre:bash:gateguard-fact-force",
+      "pre:edit-write:gateguard-fact-force"
+    ],
+    "reason": "SP PM Allowlist Guard + Destructive Guard 已覆盖拦截职责"
+  },
+  "optional_disable": {
+    "pre:bash:commit-quality": {
+      "condition": "sp_channel_express_or_hotfix",
+      "reason": "快速通道不做提交质量检查以降低延迟"
+    },
+    "pre:config-protection": {
+      "condition": "cwd_in_sp_managed_path",
+      "reason": "SP 管理文件不受 ECC 配置保护"
+    }
+  }
+}

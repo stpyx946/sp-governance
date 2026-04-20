@@ -32,6 +32,15 @@ triggers:
 ### 3. 输出报告
 生成架构评估报告，包含问题和建议。
 
+## ECC 增强
+
+当 ECC 可用时，本 Skill 执行前会自动注入以下 ECC 领域知识:
+- **backend-patterns**: 后端架构模式（分层架构、API 设计、数据访问模式）
+- **hexagonal-architecture**: 六边形架构（端口-适配器模式、依赖反转）
+
+注入方式: 参考 (reference) — 架构分析时参考成熟模式。
+ECC 不可用时本 Skill 独立运行，功能不受影响。
+
 ## Notes
 - 执行角色: sp-architect, sp-cross-architect (跨项目)
 - 权限约束: sp-architect 禁止 Edit/Write/Bash，仅只读分析

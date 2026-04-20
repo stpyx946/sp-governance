@@ -33,6 +33,14 @@ cd <project-root>
 npx playwright test
 ```
 
+## ECC 增强
+
+当 ECC 可用时，本 Skill 执行前会自动注入以下 ECC 领域知识:
+- **e2e-testing**: 端到端测试最佳实践（Page Object 模式、测试隔离、等待策略）
+
+注入方式: 上下文 (context) — E2E 测试编写参考。
+ECC 不可用时本 Skill 独立运行，功能不受影响。
+
 ## Notes
 - 执行角色: sp-tester
 - 权限约束: sp-tester 拥有全权限

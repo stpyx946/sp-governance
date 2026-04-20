@@ -33,6 +33,14 @@ npx vitest run
 npx vitest run --coverage
 ```
 
+## ECC 增强
+
+当 ECC 可用时，本 Skill 执行前会自动注入以下 ECC 领域知识:
+- **tdd-workflow**: TDD 工作流最佳实践
+
+注入方式: 上下文 (context)。
+ECC 不可用时本 Skill 独立运行，功能不受影响。
+
 ## Notes
 - 执行角色: sp-tester
 - 权限约束: sp-tester 拥有全权限

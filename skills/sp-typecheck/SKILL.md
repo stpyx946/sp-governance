@@ -30,6 +30,14 @@ cd <project-root>
 npx tsc --noEmit
 ```
 
+## ECC 增强
+
+当 ECC 可用时，本 Skill 执行前会自动注入以下 ECC 领域知识:
+- **typescript-patterns**: TypeScript 类型系统高级模式（泛型、条件类型、工具类型）
+
+注入方式: 参考 (reference) — 修复类型错误时参考高级模式。
+ECC 不可用时本 Skill 独立运行，功能不受影响。
+
 ## Notes
 - 执行角色: sp-tester (执行), sp-coder (修复类型错误)
 - 权限约束: sp-coder 需 worktree 隔离

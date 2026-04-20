@@ -18,6 +18,8 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath } from 'url';
+import { findIntegrationState } from './lib/integration.mjs';
+import { findPortfolioRoot } from './lib/portfolio.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -105,6 +107,89 @@ function createBackup(claudeDir, content) {
   writeFileSync(join(claudeDir, backupName), content);
 }
 
+/**
+ * Dynamically generate the runtime mode section for the SP block.
+ *
+ * @param {object|null} integrationState - Parsed .sp/integration.json, or null if absent.
+ * @returns {string} Markdown section string (includes trailing newline).
+ */
+function generateRuntimeModeSection(integrationState) {
+  // integration state absent — treat as SP-only
+  if (!integrationState) {
+    return `
+## 运行模式: SP-only
+
+| 层 | 组件 | 状态 |
+|----|------|------|
+| 治理 | SP Governance | ✓ active |
+| 编排 | OMC | ✗ 未检测 — 运行 /sp-governance:sp-install-omc 安装 |
+| 质量 | ECC | ✗ 未检测 — 运行 /sp-governance:sp-install-ecc 安装 |
+`;
+  }
+
+  // Schema-compliant fields: state.runtime_mode, state.integrations.omc.detected, etc.
+  const mode = integrationState.runtime_mode || 'sp-only';
+  const omc = integrationState.integrations?.omc || {};
+  const ecc = integrationState.integrations?.ecc || {};
+
+  const modeLabel = {
+    'full': 'SP + OMC + ECC (完整模式)',
+    'sp-omc': 'SP + OMC',
+    'sp-ecc': 'SP + ECC',
+    'sp-only': 'SP-only',
+  }[mode] || mode;
+
+  const spVersion = integrationState.sp_version || '9.0.0';
+  const omcStatus = omc.detected
+    ? `✓ active (v${omc.version})`
+    : '✗ 未安装 — 运行 /sp-governance:sp-install-omc 安装';
+  const eccStatus = ecc.detected
+    ? `✓ active (v${ecc.version})`
+    : '✗ 未安装 — 运行 /sp-governance:sp-install-ecc 安装';
+
+  let section = `
+## 运行模式: ${modeLabel}
+
+| 层 | 组件 | 状态 |
+|----|------|------|
+| 治理 | SP Governance v${spVersion} | ✓ active |
+| 编排 | OMC | ${omcStatus} |
+| 质量 | ECC | ${eccStatus} |
+`;
+
+  if (omc.detected) {
+    section += `
+### 当 OMC 可用时
+- 使用 OMC Agent 目录派发任务 (architect/executor/verifier 等)
+- 复杂任务使用 OMC 执行模式 (team/autopilot/ralph)
+- Agent 编排委托给 OMC
+`;
+  } else {
+    section += `
+### 当 OMC 不可用时
+- SP 直接调用 Agent 工具，串行执行
+- 使用 SP Skill 作为操作指南
+`;
+  }
+
+  if (ecc.detected) {
+    section += `
+### 当 ECC 可用时
+- Agent prompt 中注入项目对应的 ECC 编码规范 (rules)
+- 编辑后由 ECC quality hooks 自动检查
+- SP Skill 执行时附加 ECC 领域知识
+`;
+  } else {
+    section += `
+### 当 ECC 不可用时
+- Agent 按内置知识工作，无外部编码规范
+- 手动调用 sp-lint/sp-typecheck 做质量检查
+`;
+  }
+
+  return section;
+}
+
 function main() {
   const isUninstall = process.argv.includes('--uninstall');
 
@@ -131,7 +216,19 @@ function main() {
   }
 
   // Install / update
-  const snippet = loadSnippet();
+  const baseSnippet = loadSnippet();
+
+  // Resolve runtime mode section (fail-safe: fall back to SP-only)
+  let runtimeModeSection = '';
+  try {
+    const workspaceRoot = findPortfolioRoot(process.cwd()) || process.cwd();
+    const integrationState = findIntegrationState(workspaceRoot);
+    runtimeModeSection = generateRuntimeModeSection(integrationState);
+  } catch {
+    runtimeModeSection = generateRuntimeModeSection(null);
+  }
+
+  const snippet = runtimeModeSection.trimStart() + '\n' + baseSnippet;
   let existing = null;
 
   if (existsSync(claudeMdPath)) {

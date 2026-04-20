@@ -32,6 +32,15 @@ triggers:
 ### 3. 输出报告
 生成部署就绪度报告。
 
+## ECC 增强
+
+当 ECC 可用时，本 Skill 执行前会自动注入以下 ECC 领域知识:
+- **deployment-patterns**: 部署模式最佳实践（蓝绿部署、金丝雀发布、回滚策略）
+- **docker-patterns**: Docker 容器化最佳实践
+
+注入方式: 检查清单 (checklist) — 部署检查时对照最佳实践。
+ECC 不可用时本 Skill 独立运行，功能不受影响。
+
 ## Notes
 - 执行角色: sp-architect (分析), sp-tester (执行验证)
 - 权限约束: sp-architect 禁止 Edit/Write/Bash

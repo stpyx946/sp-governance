@@ -1,7 +1,7 @@
 {
   "name": "sp-governance",
-  "version": "8.0.0",
-  "description": "Lightweight multi-project governance layer - project boundary guards and safety hooks",
+  "version": "9.0.0",
+  "description": "Three-layer governance plugin for Claude Code - project boundary guards, safety hooks, with optional OMC orchestration and ECC quality integration",
   "author": {
     "name": "leosyli"
   },

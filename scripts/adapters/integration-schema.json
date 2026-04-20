@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SP Integration State",
+  "description": "SP Governance v9 三层集成状态",
+  "type": "object",
+  "required": ["sp_version", "install_date", "integrations", "runtime_mode"],
+  "properties": {
+    "sp_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "install_date": { "type": "string", "format": "date-time" },
+    "integrations": {
+      "type": "object",
+      "properties": {
+        "omc": {
+          "type": "object",
+          "required": ["detected"],
+          "properties": {
+            "detected": { "type": "boolean" },
+            "version": { "type": ["string", "null"] },
+            "path": { "type": ["string", "null"] },
+            "compatibility": { "type": "string", "enum": ["compatible", "incompatible", "unknown"] },
+            "min_compatible": { "type": "string", "default": "1.0.0" },
+            "features_enabled": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "ecc": {
+          "type": "object",
+          "required": ["detected"],
+          "properties": {
+            "detected": { "type": "boolean" },
+            "version": { "type": ["string", "null"] },
+            "path": { "type": ["string", "null"] },
+            "compatibility": { "type": "string", "enum": ["compatible", "incompatible", "unknown"] },
+            "min_compatible": { "type": "string", "default": "1.8.0" },
+            "features_enabled": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "runtime_mode": { "type": "string", "enum": ["sp-only", "sp-omc", "sp-ecc", "full"] },
+    "last_compat_check": { "type": "string", "format": "date-time" }
+  }
+}
