@@ -9,11 +9,8 @@ import { refreshIntegrationState, findIntegrationState } from '../../scripts/lib
 const workspaceRoot = process.argv[2] || process.cwd();
 
 try {
-  // Try cached state first; refresh if missing
-  let state = findIntegrationState(workspaceRoot);
-  if (!state) {
-    state = refreshIntegrationState(workspaceRoot);
-  }
+  // Always refresh to pick up newly installed plugins
+  const state = refreshIntegrationState(workspaceRoot);
   console.log(JSON.stringify(state, null, 2));
 } catch (err) {
   console.error(JSON.stringify({ error: err.message }));

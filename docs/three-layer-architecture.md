@@ -93,6 +93,32 @@ ECC → OMC: 无依赖
 | OMC | 1.0.0 | 2.5.0 |
 | ECC | 1.8.0 | 1.10.0 |
 
+## 依赖插件管理
+
+SP Governance 的三层架构依赖以下插件。所有依赖无论是否可选，均纳入集成状态管理。
+
+| 插件 | 项目路径 | GitHub 源 | 最低版本 | 必需 | 状态检测 |
+|------|---------|-----------|---------|------|---------|
+| oh-my-claudecode (OMC) | /workspace/own/everything-claude-code/../ 或 ~/.claude/plugins/oh-my-claudecode | https://github.com/anthropics/claude-code (内置) | 1.0.0 | 否 | integration.mjs detectOMC() |
+| everything-claude-code (ECC) | /workspace/own/everything-claude-code | https://github.com/affaan-m/everything-claude-code | 1.8.0 | 否 | integration.mjs detectECC() |
+
+### 插件缺失处理
+
+bootstrap-guard 在会话启动时自动探测所有依赖插件。当检测到插件缺失时：
+
+- **OMC 缺失**: 提示用户 "OMC 未检测到，SP 将以 sp-only/sp-ecc 模式运行。如需安装：`omc update` 或参考 OMC 文档"
+- **ECC 缺失**: 提示用户 "ECC 未检测到，质量规则注入和学习数据桥接不可用。如需安装：`claude plugin marketplace add --source git --url https://github.com/affaan-m/everything-claude-code.git everything-claude-code && claude plugin install everything-claude-code@everything-claude-code`"
+- **两者都缺失**: 提示用户 "SP 以纯治理模式运行（sp-only），如需完整三层能力请安装 OMC 和 ECC"
+
+### 运行模式自动判定
+
+| 模式 | OMC | ECC | 能力 |
+|------|-----|-----|------|
+| full | ✓ | ✓ | 治理 + 执行调度 + 质量规则 |
+| sp-omc | ✓ | ✗ | 治理 + 执行调度 |
+| sp-ecc | ✗ | ✓ | 治理 + 质量规则 |
+| sp-only | ✗ | ✗ | 纯治理（边界守护 + 安全防护）|
+
 ## 集成状态文件
 
 `.sp/integration.json` 存储在工作空间根目录，记录三层的检测状态、版本、路径和功能开关。由 Bootstrap Guard 在会话启动时自动刷新（24h 缓存）。

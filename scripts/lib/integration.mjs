@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, statSync, mkdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath } from 'url';
@@ -9,6 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const OMC_SEARCH_PATHS = [
   join(homedir(), '.claude', 'plugins', 'oh-my-claudecode'),
   join(homedir(), '.claude', 'plugins', 'cache', 'oh-my-claudecode'),
+  join(homedir(), '.claude', 'plugins', 'cache', 'omc'),
 ];
 
 const ECC_SEARCH_PATHS = [
@@ -16,6 +17,55 @@ const ECC_SEARCH_PATHS = [
   join(homedir(), '.claude', 'plugins', 'ecc'),
   join(homedir(), '.claude', 'plugins', 'cache', 'everything-claude-code'),
 ];
+
+/**
+ * Resolve the actual plugin directory inside a cache or plugin path.
+ * Claude Code plugin cache uses: cache/{marketplace}/{pluginName}/{version}/
+ * If the path itself contains package.json/VERSION, returns it directly.
+ * Otherwise checks installed_plugins.json, then walks the nested structure.
+ * @param {string} pluginPath
+ * @returns {string|null} Resolved path containing package.json or VERSION, or null.
+ */
+function resolveCachePath(pluginPath) {
+  try {
+    if (!existsSync(pluginPath)) return null;
+    // Direct hit — version files at this level
+    if (existsSync(join(pluginPath, 'package.json')) || existsSync(join(pluginPath, 'VERSION'))) {
+      return pluginPath;
+    }
+    // Authoritative source: installed_plugins.json tracks exact install paths
+    const installedPath = join(homedir(), '.claude', 'plugins', 'installed_plugins.json');
+    if (existsSync(installedPath)) {
+      const installed = JSON.parse(readFileSync(installedPath, 'utf8'));
+      const plugins = installed?.plugins ?? {};
+      for (const [, entries] of Object.entries(plugins)) {
+        for (const entry of Array.isArray(entries) ? entries : [entries]) {
+          if (entry.installPath && entry.installPath.startsWith(pluginPath) && existsSync(entry.installPath)) {
+            return entry.installPath;
+          }
+        }
+      }
+    }
+    // Fallback: walk cache/{name}/{version}/ (max 2 levels deep)
+    for (const sub of readdirSync(pluginPath)) {
+      const subPath = join(pluginPath, sub);
+      if (!statSync(subPath).isDirectory()) continue;
+      if (existsSync(join(subPath, 'package.json')) || existsSync(join(subPath, 'VERSION'))) {
+        return subPath;
+      }
+      for (const ver of readdirSync(subPath)) {
+        const verPath = join(subPath, ver);
+        if (!statSync(verPath).isDirectory()) continue;
+        if (existsSync(join(verPath, 'package.json')) || existsSync(join(verPath, 'VERSION'))) {
+          return verPath;
+        }
+      }
+    }
+  } catch {
+    // fall through
+  }
+  return null;
+}
 
 /**
  * Read and parse the integration state file.
@@ -101,15 +151,18 @@ function readVersion(pluginPath) {
 }
 
 /**
- * Detect OMC installation from known search paths.
+ * Detect a plugin from a list of search paths.
+ * Uses resolveCachePath to handle nested cache directory structures.
+ * @param {string[]} searchPaths
  * @returns {{ found: boolean, version: string|null, path: string|null }}
  */
-export function detectOMC() {
-  for (const candidate of OMC_SEARCH_PATHS) {
+function detectPlugin(searchPaths) {
+  for (const candidate of searchPaths) {
     try {
-      if (existsSync(candidate)) {
-        const version = readVersion(candidate);
-        return { found: true, version, path: candidate };
+      const resolved = resolveCachePath(candidate);
+      if (resolved) {
+        const version = readVersion(resolved);
+        return { found: true, version, path: resolved };
       }
     } catch {
       // continue to next candidate
@@ -119,21 +172,19 @@ export function detectOMC() {
 }
 
 /**
+ * Detect OMC installation from known search paths.
+ * @returns {{ found: boolean, version: string|null, path: string|null }}
+ */
+export function detectOMC() {
+  return detectPlugin(OMC_SEARCH_PATHS);
+}
+
+/**
  * Detect ECC installation from known search paths.
  * @returns {{ found: boolean, version: string|null, path: string|null }}
  */
 export function detectECC() {
-  for (const candidate of ECC_SEARCH_PATHS) {
-    try {
-      if (existsSync(candidate)) {
-        const version = readVersion(candidate);
-        return { found: true, version, path: candidate };
-      }
-    } catch {
-      // continue to next candidate
-    }
-  }
-  return { found: false, version: null, path: null };
+  return detectPlugin(ECC_SEARCH_PATHS);
 }
 
 /**

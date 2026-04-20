@@ -178,6 +178,44 @@ async function main() {
 
           // 首次检测到集成变化时，通过 additionalContext 通知一次
           // 后续静默运行（不每次都输出）
+          const omcDetected = integrationState?.integrations?.omc?.detected;
+          const eccDetected = integrationState?.integrations?.ecc?.detected;
+          const mode = integrationState?.runtime_mode || 'sp-only';
+
+          // Emit install guidance on first detection of missing plugins
+          // Use bootstrap-state to track whether we've already notified
+          const notifiedKey = `integration_notified_${mode}`;
+          let alreadyNotified = false;
+          try {
+            if (existsSync(statePath)) {
+              const bs = JSON.parse(readFileSync(statePath, 'utf-8'));
+              alreadyNotified = bs[notifiedKey] === true;
+            }
+          } catch { /* ignore */ }
+
+          if (!alreadyNotified && mode !== 'full') {
+            let guidance = '';
+            if (!omcDetected && !eccDetected) {
+              guidance = 'SP 以纯治理模式运行（sp-only），如需完整三层能力请安装 OMC 和 ECC。';
+            } else if (!omcDetected) {
+              guidance = 'OMC 未检测到，SP 将以 sp-ecc 模式运行。如需安装：`omc update` 或参考 OMC 文档。';
+            } else if (!eccDetected) {
+              guidance = 'ECC 未检测到，质量规则注入和学习数据桥接不可用。如需安装：'
+                + '`claude plugin marketplace add https://github.com/affaan-m/everything-claude-code.git '
+                + '&& claude plugin install everything-claude-code@everything-claude-code`';
+            }
+            if (guidance) {
+              emit('INTEGRATION_GUIDANCE', `运行模式: ${mode}。${guidance}`);
+              // Mark as notified so we don't repeat
+              try {
+                if (existsSync(statePath)) {
+                  const bs = JSON.parse(readFileSync(statePath, 'utf-8'));
+                  bs[notifiedKey] = true;
+                  writeFileSync(statePath, JSON.stringify(bs));
+                }
+              } catch { /* non-critical */ }
+            }
+          }
         }
       } catch {
         // 集成检测失败不影响核心 Guard 功能
