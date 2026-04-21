@@ -224,12 +224,84 @@ function checkWritePath(filePath, cwd) {
   return { ok: false, reason: `禁止写入: ${rel} (业务代码/配置文件请委派 agent)` };
 }
 
+function checkSingleCommand(cmd) {
+  const trimmed = cmd.trim();
+  if (!trimmed) return true;
+  for (const pat of BASH_HARD_DENY) {
+    if (pat.test(trimmed)) return false;
+  }
+  for (const pat of BASH_ALLOWLIST) {
+    if (pat.test(trimmed)) return true;
+  }
+  return false;
+}
+
+function splitCompoundCommand(command) {
+  const segments = [];
+  let current = '';
+  let i = 0;
+  let depth = 0;
+  while (i < command.length) {
+    const ch = command[i];
+    if (ch === "'") {
+      current += ch; i++;
+      while (i < command.length && command[i] !== "'") current += command[i++];
+      if (i < command.length) current += command[i++];
+      continue;
+    }
+    if (ch === '"') {
+      current += ch; i++;
+      while (i < command.length && command[i] !== '"') {
+        if (command[i] === '\\') { current += command[i++]; }
+        if (i < command.length) current += command[i++];
+      }
+      if (i < command.length) current += command[i++];
+      continue;
+    }
+    if (ch === '$' && command[i+1] === '(') { depth++; current += ch + command[i+1]; i += 2; continue; }
+    if (ch === '(') { depth++; current += ch; i++; continue; }
+    if (ch === ')') { if (depth > 0) depth--; current += ch; i++; continue; }
+    if (depth === 0) {
+      if (ch === '&' && command[i+1] === '&') {
+        segments.push(current); current = ''; i += 2;
+        while (i < command.length && command[i] === ' ') i++;
+        continue;
+      }
+      if (ch === '|' && command[i+1] === '|') {
+        segments.push(current); current = ''; i += 2;
+        while (i < command.length && command[i] === ' ') i++;
+        continue;
+      }
+      if (ch === '|' && command[i+1] !== '|') {
+        segments.push(current); current = ''; i++;
+        while (i < command.length && command[i] === ' ') i++;
+        continue;
+      }
+      if (ch === ';') {
+        segments.push(current); current = ''; i++;
+        while (i < command.length && command[i] === ' ') i++;
+        continue;
+      }
+    }
+    current += ch; i++;
+  }
+  if (current.trim()) segments.push(current);
+  return segments;
+}
+
 function checkBashCommand(command) {
   const trimmed = command.trim();
   for (const pat of BASH_HARD_DENY) {
     if (pat.test(trimmed)) {
       return { ok: false, reason: `Bash 命令被拦截: ${trimmed.slice(0, 60)} (构建/测试/执行请委派 agent)` };
     }
+  }
+  const segments = splitCompoundCommand(trimmed);
+  if (segments.length > 1) {
+    const allAllowed = segments.every(seg => checkSingleCommand(seg.trim()));
+    if (allAllowed) return { ok: true };
+    const failing = segments.find(seg => !checkSingleCommand(seg.trim())) || '';
+    return { ok: false, reason: `Bash 命令不在 allowlist: ${failing.trim().slice(0, 60)} (请委派 agent)` };
   }
   for (const pat of BASH_ALLOWLIST) {
     if (pat.test(trimmed)) return { ok: true };
