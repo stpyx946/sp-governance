@@ -361,6 +361,12 @@ async function main() {
     const toolInput = data.tool_input || {};
 
     // 6. Allowlist check (fail-closed for both roles)
+    // Allow all OMC MCP tools by prefix (covers lsp_*, ast_grep_*, python_repl, etc.)
+    if (toolName && toolName.startsWith('mcp__plugin_oh-my-claudecode_t__')) {
+      passThrough();
+      return;
+    }
+
     const inShared = SHARED_ALLOWLIST.has(toolName);
     const inTeamLeadExtra = role === 'team-lead' && TEAM_LEAD_EXTRA.has(toolName);
 
