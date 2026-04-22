@@ -125,12 +125,21 @@ const WRITE_DENY_PATHS = [
 // ---------------------------------------------------------------------------
 
 const BASH_HARD_DENY = [
-  /(?:^|[^2])>\s*(?!\/dev\/null)[^|&>]/, /\btee\b/, /\bsed\s+-i/, /\bawk\b.*>/, /\bperl\s+-[ip]/,
+  /\btee\b/, /\bsed\s+-i/, /\bawk\b.*>/, /\bperl\s+-[ip]/,
   /\bpython[23]?\s/, /\bnode\s+(?!--version)/, /\bcurl\s.*-[oO]/, /\bwget\b/,
   /\bnpm\s+(run|start|exec|test|install|ci|build)\b/,
   /\bpnpm\s+(run|start|exec|test|install|build)\b/,
   /\byarn\s+(run|start|test|install|build)\b/,
 ];
+
+function hasUnsafeRedirect(cmd) {
+  const stripped = cmd.replace(/2>\s*\/dev\/null/g, '').replace(/2>&1/g, '');
+  const redirectMatch = stripped.match(/(?:^|[^2])>\s*(.*)/);
+  if (!redirectMatch) return false;
+  const target = redirectMatch[1].trim();
+  if (target === '/dev/null' || target.startsWith('/dev/null ') || target.startsWith('/dev/null;')) return false;
+  return true;
+}
 
 const BASH_ALLOWLIST = [
   /^git\s+(status|log|branch|remote|diff|show|tag|rev-parse|describe|fetch|stash)\b/,
@@ -235,6 +244,7 @@ function checkWritePath(filePath, cwd) {
 function checkSingleCommand(cmd) {
   const trimmed = cmd.trim();
   if (!trimmed) return true;
+  if (hasUnsafeRedirect(trimmed)) return false;
   for (const pat of BASH_HARD_DENY) {
     if (pat.test(trimmed)) return false;
   }
@@ -303,6 +313,9 @@ function checkBashCommand(command) {
   for (const seg of segments) {
     const s = seg.trim();
     if (!s) continue;
+    if (hasUnsafeRedirect(s)) {
+      return { ok: false, reason: `Bash 命令被拦截: ${s.slice(0, 60)} (输出重定向请委派 agent)` };
+    }
     for (const pat of BASH_HARD_DENY) {
       if (pat.test(s)) {
         return { ok: false, reason: `Bash 命令被拦截: ${s.slice(0, 60)} (构建/测试/执行请委派 agent)` };

@@ -1,6 +1,6 @@
 {
   "name": "sp-governance",
-  "version": "9.0.2",
+  "version": "9.0.3",
   "description": "Three-layer governance plugin for Claude Code - project boundary guards, safety hooks, with optional OMC orchestration and ECC quality integration",
   "author": {
     "name": "leosyli"
