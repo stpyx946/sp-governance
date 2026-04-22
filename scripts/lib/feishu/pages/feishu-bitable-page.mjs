@@ -16,6 +16,7 @@ const FIELD_TYPE_LABELS = {
   url: '超链接',
   phone: '电话号码',
   email: '邮箱',
+  link: '关联',
 };
 
 /** 需要通过下拉选择的字段类型（输入后按 Enter 确认/创建选项） */
@@ -203,6 +204,13 @@ export class FeishuBitablePage extends BasePage {
    */
   async setupFields(fields) {
     if (fields.length === 0) return;
+
+    // 标准化字段类型：中文 → 英文 key
+    fields = fields.map(f => ({
+      ...f,
+      type: f.type === '关联' ? 'link' : f.type,
+    }));
+
     await this._closeAIOverlays();
     await this._dismissGuides();
     await this.page.waitForTimeout(1000);
@@ -227,7 +235,7 @@ export class FeishuBitablePage extends BasePage {
     // 通过面板 "新增字段" 按钮添加新字段
     for (let i = existingFields.length; i < fields.length; i++) {
       console.log(`  Adding field: "${fields[i].name}" (${fields[i].type})`);
-      await this._addFieldViaPanel(fields[i].name, fields[i].type);
+      await this._addFieldViaPanel(fields[i].name, fields[i].type, fields[i].linkedTable);
     }
 
     // 关闭字段配置面板
@@ -975,7 +983,7 @@ export class FeishuBitablePage extends BasePage {
    * 通过字段配置面板的 "新增字段" 按钮添加字段
    * 使用 page.mouse.click 确保 React 事件正确触发
    */
-  async _addFieldViaPanel(name, type) {
+  async _addFieldViaPanel(name, type, linkedTable) {
     try {
       // 确保字段配置面板已打开
       await this._openFieldPanel();
@@ -1033,7 +1041,7 @@ export class FeishuBitablePage extends BasePage {
 
       // 选择字段类型（如果不是默认的 "文本"）
       if (type && type !== 'text') {
-        await this._selectFieldTypeInPopover(type);
+        await this._selectFieldTypeInPopover(type, linkedTable);
       }
 
       // 点击 "确定"
@@ -1050,7 +1058,7 @@ export class FeishuBitablePage extends BasePage {
    * 在字段编辑弹窗（b-field-popover-new）中选择字段类型
    * 步骤：点击 "文本 >" 行 → 右侧弹出 field-option-list → 选择目标类型
    */
-  async _selectFieldTypeInPopover(type) {
+  async _selectFieldTypeInPopover(type, linkedTable = null) {
     const typeLabel = FIELD_TYPE_LABELS[type] || type;
 
     // 点击类型选择行（"文本 >"）展开右侧类型列表
@@ -1102,6 +1110,78 @@ export class FeishuBitablePage extends BasePage {
       console.log(`    Could not find type "${typeLabel}" in dropdown`);
       await this.page.keyboard.press('Escape');
       await this.page.waitForTimeout(300);
+    }
+
+    // 关联字段：选择类型后需要在弹出面板中选择目标表
+    if (type === 'link' && linkedTable) {
+      const found = await this._selectLinkedTable(linkedTable);
+      if (!found) {
+        throw new Error(`关联目标表 "${linkedTable}" 未找到`);
+      }
+    }
+  }
+
+  /**
+   * 在关联字段类型选择后，选择目标数据表
+   * 飞书 UI 流程：选择"关联"类型后弹出面板，包含搜索框和数据表列表
+   * @param {string} tableName - 目标数据表名称
+   * @returns {boolean} 是否成功选择目标表
+   */
+  async _selectLinkedTable(tableName) {
+    console.log(`    Selecting linked table: "${tableName}"`);
+    await this.page.waitForTimeout(2000);
+
+    // 在关联面板的搜索框中输入目标表名
+    const searchInput = await this.page.evaluate(() => {
+      // 关联面板中的搜索框
+      const popover = document.querySelector('.b-field-popover-new') || document;
+      for (const inp of popover.querySelectorAll('input')) {
+        const ph = inp.placeholder || '';
+        if (ph.includes('搜索') || ph.includes('查找') || ph.includes('数据表')) {
+          const r = inp.getBoundingClientRect();
+          if (r.width > 0 && r.x > 0) return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+        }
+      }
+      // 兜底：弹窗内最后出现的 input（类型选择后新出现的搜索框）
+      const inputs = popover.querySelectorAll('input');
+      for (let i = inputs.length - 1; i >= 0; i--) {
+        const r = inputs[i].getBoundingClientRect();
+        if (r.width > 30 && r.x > 0) return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+      }
+      return null;
+    });
+
+    if (searchInput) {
+      await this.page.mouse.click(searchInput.x, searchInput.y);
+      await this.page.waitForTimeout(300);
+      await this.page.keyboard.type(tableName, { delay: 20 });
+      await this.page.waitForTimeout(800);
+    }
+
+    // 在列表中点击目标数据表
+    const tableItem = await this.page.evaluate((name) => {
+      // 查找关联面板中的数据表列表项
+      const popover = document.querySelector('.b-field-popover-new') || document;
+      for (const el of popover.querySelectorAll('div, span, li, [class*="item"], [class*="option"]')) {
+        const text = el.textContent?.trim();
+        if (text === name && el.children.length <= 2) {
+          const r = el.getBoundingClientRect();
+          if (r.width > 0 && r.x > 0 && r.height > 8 && r.height < 60) {
+            return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+          }
+        }
+      }
+      return null;
+    }, tableName);
+
+    if (tableItem) {
+      await this.page.mouse.click(tableItem.x, tableItem.y);
+      await this.page.waitForTimeout(800);
+      console.log(`    Linked table "${tableName}" selected`);
+      return true;
+    } else {
+      console.log(`    Warning: Could not find linked table "${tableName}" in panel`);
+      return false;
     }
   }
 

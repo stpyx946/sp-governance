@@ -12,6 +12,7 @@
  *   fill-data     填充数据行
  *   add-subtable  添加子数据表
  *   add-view      添加视图（看板/甘特图）
+ *   link-fields   创建关联字段（跨表关联）
  *   full-setup    完整设置：创建/打开 + 字段 + 数据 + 子表 + 视图
  *
  * Options:
@@ -78,6 +79,7 @@ Actions:
   rename-table  重命名数据表
   delete-view   删除视图
   rename-title  重命名标题
+  link-fields   创建关联字段（跨表关联）
   full-setup    完整设置（字段 + 数据 + 子表 + 视图）
 
 Options:
@@ -301,6 +303,36 @@ async function actionRenameTitle(bitablePage, url, title) {
   return { url, title };
 }
 
+async function actionLinkFields(bitablePage, url, data) {
+  const links = data?.links || [];
+  if (links.length === 0) throw new Error('links 数组为空');
+
+  console.log(`Creating ${links.length} link field(s) in: ${url}`);
+  await bitablePage.openBitable(url);
+
+  let created = 0;
+  for (const link of links) {
+    const { table, field, linkedTable } = link;
+    if (!field || typeof field !== 'string' || !linkedTable || typeof linkedTable !== 'string') {
+      console.log(`  Skipping invalid link config: ${JSON.stringify(link)}`);
+      continue;
+    }
+    if (table) {
+      console.log(`  Switching to table: "${table}"`);
+      const switched = await bitablePage.switchToTable(table);
+      if (!switched) {
+        console.log(`  Warning: Could not switch to table "${table}", skipping`);
+        continue;
+      }
+    }
+    console.log(`  Adding link field: "${field}" → "${linkedTable}"`);
+    await bitablePage.setupFields([{ name: field, type: 'link', linkedTable }]);
+    created++;
+    await bitablePage.page.waitForTimeout(500);
+  }
+  return { url, linksCreated: created, linksTotal: links.length };
+}
+
 // ===== 主流程 =====
 
 const params = parseArgs();
@@ -407,6 +439,13 @@ wrapFeishuOperation(`bitable_${action}`, async () => {
         if (!url) throw new Error('--url 或 --project 参数必填');
         if (!params.title) throw new Error('--title 参数必填');
         result = await actionRenameTitle(bitablePage, url, params.title);
+        break;
+      }
+      case 'link-fields': {
+        const url = resolveUrl(params);
+        if (!url) throw new Error('--url 或 --project 参数必填');
+        if (!data) throw new Error('--data-file 参数必填（需包含 links 数组）');
+        result = await actionLinkFields(bitablePage, url, data);
         break;
       }
       case 'full-setup': {
