@@ -125,7 +125,7 @@ const WRITE_DENY_PATHS = [
 // ---------------------------------------------------------------------------
 
 const BASH_HARD_DENY = [
-  /(?:^|[^2])>\s*[^|&>]/, /\btee\b/, /\bsed\s+-i/, /\bawk\b.*>/, /\bperl\s+-[ip]/,
+  /(?:^|[^2])>\s*(?!\/dev\/null)[^|&>]/, /\btee\b/, /\bsed\s+-i/, /\bawk\b.*>/, /\bperl\s+-[ip]/,
   /\bpython[23]?\s/, /\bnode\s+(?!--version)/, /\bcurl\s.*-[oO]/, /\bwget\b/,
   /\bnpm\s+(run|start|exec|test|install|ci|build)\b/,
   /\bpnpm\s+(run|start|exec|test|install|build)\b/,
