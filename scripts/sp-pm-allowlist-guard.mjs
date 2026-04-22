@@ -126,11 +126,22 @@ const WRITE_DENY_PATHS = [
 
 const BASH_HARD_DENY = [
   /\btee\b/, /\bsed\s+-i/, /\bawk\b.*>/, /\bperl\s+-[ip]/,
-  /\bpython[23]?\s/, /\bnode\s+(?!--version)/, /\bcurl\s.*-[oO]/, /\bwget\b/,
+  /\bpython[23]?\s/, /\bcurl\s.*-[oO]/, /\bwget\b/,
   /\bnpm\s+(run|start|exec|test|install|ci|build)\b/,
   /\bpnpm\s+(run|start|exec|test|install|build)\b/,
   /\byarn\s+(run|start|test|install|build)\b/,
 ];
+
+function hasUnsafeNodeCall(cmd) {
+  if (!/\bnode\s+(?!--version)/.test(cmd)) return false;
+  const pluginRoot = (process.env.CLAUDE_PLUGIN_ROOT || '').replace(/\\/g, '/');
+  if (pluginRoot) {
+    const normalized = cmd.replace(/\\/g, '/').replace(/"/g, '');
+    if (normalized.includes(pluginRoot) || normalized.includes('$CLAUDE_PLUGIN_ROOT')) return false;
+  }
+  if (/\bnode\s+.*[\\/]\.claude[\\/]plugins[\\/]/.test(cmd.replace(/"/g, ''))) return false;
+  return true;
+}
 
 function hasUnsafeRedirect(cmd) {
   const stripped = cmd.replace(/2>\s*\/dev\/null/g, '').replace(/2>&1/g, '');
@@ -245,6 +256,7 @@ function checkSingleCommand(cmd) {
   const trimmed = cmd.trim();
   if (!trimmed) return true;
   if (hasUnsafeRedirect(trimmed)) return false;
+  if (hasUnsafeNodeCall(trimmed)) return false;
   for (const pat of BASH_HARD_DENY) {
     if (pat.test(trimmed)) return false;
   }
@@ -315,6 +327,9 @@ function checkBashCommand(command) {
     if (!s) continue;
     if (hasUnsafeRedirect(s)) {
       return { ok: false, reason: `Bash 命令被拦截: ${s.slice(0, 60)} (输出重定向请委派 agent)` };
+    }
+    if (hasUnsafeNodeCall(s)) {
+      return { ok: false, reason: `Bash 命令被拦截: ${s.slice(0, 60)} (node 执行请委派 agent)` };
     }
     for (const pat of BASH_HARD_DENY) {
       if (pat.test(s)) {
