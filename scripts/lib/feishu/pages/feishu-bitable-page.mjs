@@ -1557,31 +1557,43 @@ export class FeishuBitablePage extends BasePage {
    * 飞书 bitable 的侧边栏需要先通过 ">>" 按钮展开
    */
   async _clickSidebarNewButton() {
-    // Step 1: 先展开左侧侧边栏（点击 ">>" 按钮）
-    const expandBtn = await this.page.evaluate(() => {
-      // ">>" 按钮在左上角，class 中包含 "expand" 或 "toggle"
-      // 也可能是 bitable-sidebar 相关的展开按钮
-      for (const el of document.querySelectorAll('div, span, button')) {
-        const text = el.textContent?.trim();
-        const cls = typeof el.className === 'string' ? el.className : '';
-        const r = el.getBoundingClientRect();
-        // 左上角区域的展开按钮
-        if (r.x >= 0 && r.x < 50 && r.y > 50 && r.y < 120 && r.width > 10 && r.width < 50 && r.height > 10) {
-          if (cls.includes('expand') || cls.includes('toggle') || cls.includes('sidebar') || cls.includes('collapse')) {
+    // Step 0: 检查侧边栏是否已展开（wiki 嵌入场景默认展开）
+    const sidebarAlreadyOpen = await this.page.evaluate(() => {
+      const sidebar = document.querySelector('.bitable-table-tab-sidebar, .bitable-new-table-tab-wrap, [class*="table-tab-sidebar"]');
+      if (sidebar) {
+        const r = sidebar.getBoundingClientRect();
+        return r.width > 50 && r.x >= 0;
+      }
+      return false;
+    });
+
+    // Step 1: 先展开左侧侧边栏（点击 ">>" 按钮），wiki 嵌入时跳过
+    if (!sidebarAlreadyOpen) {
+      const expandBtn = await this.page.evaluate(() => {
+        // ">>" 按钮在左上角，class 中包含 "expand" 或 "toggle"
+        // 也可能是 bitable-sidebar 相关的展开按钮
+        for (const el of document.querySelectorAll('div, span, button')) {
+          const text = el.textContent?.trim();
+          const cls = typeof el.className === 'string' ? el.className : '';
+          const r = el.getBoundingClientRect();
+          // 左上角区域的展开按钮
+          if (r.x >= 0 && r.x < 50 && r.y > 50 && r.y < 120 && r.width > 10 && r.width < 50 && r.height > 10) {
+            if (cls.includes('expand') || cls.includes('toggle') || cls.includes('sidebar') || cls.includes('collapse')) {
+              return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2), cls: cls.slice(0, 60) };
+            }
+          }
+          // ">>" 文字按钮
+          if (text === '>>' && r.x < 50 && r.y < 120 && r.width > 0) {
             return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2), cls: cls.slice(0, 60) };
           }
         }
-        // ">>" 文字按钮
-        if (text === '>>' && r.x < 50 && r.y < 120 && r.width > 0) {
-          return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2), cls: cls.slice(0, 60) };
-        }
-      }
-      return null;
-    });
+        return null;
+      });
 
-    if (expandBtn) {
-      await this.page.mouse.click(expandBtn.x, expandBtn.y);
-      await this.page.waitForTimeout(1500);
+      if (expandBtn) {
+        await this.page.mouse.click(expandBtn.x, expandBtn.y);
+        await this.page.waitForTimeout(1500);
+      }
     }
 
     // Step 2: 在展开的侧边栏中找到 "新建" 区域下的 "数据表" 菜单项
@@ -1613,7 +1625,47 @@ export class FeishuBitablePage extends BasePage {
       return true;
     }
 
-    // 方法3：如果侧边栏没有展开，尝试直接通过 "数据表" 下拉菜单的 "新建" 部分
+    // 方法3: wiki 嵌入场景 — 侧边栏底部的 "新建" 文字按钮
+    const wikiNewBtn = await this.page.evaluate(() => {
+      for (const el of document.querySelectorAll('span, div, button')) {
+        const text = el.textContent?.trim();
+        if (text === '新建' || text === '+ 新建') {
+          const r = el.getBoundingClientRect();
+          // 侧边栏区域（x < 300, y > 300）
+          if (r.width > 0 && r.x < 300 && r.y > 300) {
+            return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+          }
+        }
+      }
+      return null;
+    });
+
+    if (wikiNewBtn) {
+      await this.page.mouse.click(wikiNewBtn.x, wikiNewBtn.y);
+      await this.page.waitForTimeout(1000);
+
+      // 等待菜单出现后选择 "数据表"
+      const dataTableItem = await this.page.evaluate(() => {
+        for (const el of document.querySelectorAll('.b-menu__item, [class*="menu-item"], li, div[role="menuitem"]')) {
+          const text = el.textContent?.trim();
+          if (text === '数据表') {
+            const r = el.getBoundingClientRect();
+            if (r.width > 0 && r.x >= 0) {
+              return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+            }
+          }
+        }
+        return null;
+      });
+
+      if (dataTableItem) {
+        await this.page.mouse.click(dataTableItem.x, dataTableItem.y);
+        await this.page.waitForTimeout(2000);
+        return true;
+      }
+    }
+
+    // 方法4：如果侧边栏没有展开，尝试直接通过 "数据表" 下拉菜单的 "新建" 部分
     // 点击顶部 "数据表" 下拉
     const dtDropdown = await this.page.evaluate(() => {
       const el = document.querySelector('.bitable-view-menu-hover-block-button');
@@ -1698,9 +1750,35 @@ export class FeishuBitablePage extends BasePage {
       }
     }
 
+    // wiki 嵌入场景：在侧边栏中找到最后一个数据表 tab 并双击重命名
+    const wikiTabPos = await this.page.evaluate(() => {
+      const items = document.querySelectorAll('.bitable-new-table-tab__item-name');
+      if (items.length > 0) {
+        const last = items[items.length - 1];
+        const r = last.getBoundingClientRect();
+        if (r.width > 0 && r.x >= 0) {
+          return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+        }
+      }
+      return null;
+    });
+
+    if (wikiTabPos) {
+      await this.page.mouse.dblclick(wikiTabPos.x, wikiTabPos.y);
+      await this.page.waitForTimeout(800);
+
+      const filled = await this._fillVisibleInput(newName);
+      if (filled) {
+        await this.page.keyboard.press('Enter');
+        await this.page.waitForTimeout(500);
+        return;
+      }
+    }
+
     // 备选方案：右键菜单 → 重命名
-    if (tabPos) {
-      await this.page.mouse.click(tabPos.x, tabPos.y, { button: 'right' });
+    const renameTarget = tabPos || wikiTabPos;
+    if (renameTarget) {
+      await this.page.mouse.click(renameTarget.x, renameTarget.y, { button: 'right' });
       await this.page.waitForTimeout(800);
       await this._clickMenuItemByText('重命名');
       await this.page.waitForTimeout(500);
