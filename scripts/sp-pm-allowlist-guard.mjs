@@ -133,18 +133,19 @@ const BASH_HARD_DENY = [
 ];
 
 const BASH_ALLOWLIST = [
-  /^git\s+(status|log|branch|remote|diff|show|tag|rev-parse|describe|fetch)\b/,
-  /^ls(\s|$)/, /^dir(\s|$)/, /^pwd$/, /^wc\s/, /^file\s/, /^stat\s/, /^du\s/, /^df\s/,
-  /^echo\s/, /^printf\s/, /^date/, /^whoami/, /^uname/,
-  /^which\s/, /^type\s/, /^command\s/,
+  /^git\s+(status|log|branch|remote|diff|show|tag|rev-parse|describe|fetch|stash)\b/,
+  /^cd(\s|$)/, /^ls(\s|$)/, /^dir(\s|$)/, /^pwd$/, /^wc(\s|$)/, /^file\s/, /^stat\s/, /^du\s/, /^df\s/,
+  /^echo(\s|$)/, /^printf\s/, /^date/, /^whoami/, /^uname/, /^env$/, /^printenv/,
+  /^which\s/, /^type\s/, /^command\s/, /^test\s/, /^\[/,
   /^head(\s|$)/, /^tail(\s|$)/, /^cat(\s|$)/, /^less(\s|$)/, /^more(\s|$)/,
-  /^find\s/, /^tree(\s|$)/, /^sort(\s|$)/, /^uniq(\s|$)/, /^cut(\s|$)/,
-  /^grep\s/, /^rg\s/, /^ag\s/,
+  /^find\s/, /^tree(\s|$)/, /^sort(\s|$)/, /^uniq(\s|$)/, /^cut(\s|$)/, /^tr\s/,
+  /^grep\s/, /^rg\s/, /^ag\s/, /^xargs\s/,
   /^node\s+--version/, /^npm\s+(ls|list|outdated|view|--version)\b/,
   /^pnpm\s+(ls|list|outdated|--version)\b/,
-  /^mkdir\s+-p\s/, /^touch\s/, /^cp\s/,
-  /^zip\s/, /^unzip\s/,
+  /^mkdir\s/, /^touch\s/, /^cp\s/, /^mv\s/, /^ln\s/,
+  /^zip\s/, /^unzip\s/, /^tar\s/,
   /^gh\s/, /^docker\s+(ps|images|inspect|logs|stats)\b/,
+  /^realpath\s/, /^basename\s/, /^dirname\s/, /^readlink\s/,
 ];
 
 // ---------------------------------------------------------------------------
