@@ -62,12 +62,15 @@ const SHARED_ALLOWLIST = new Set([
   'AskUserQuestion', 'Skill', 'ToolSearch',
   'EnterPlanMode', 'ExitPlanMode', 'EnterWorktree', 'ExitWorktree',
   'CronCreate', 'CronDelete', 'CronList',
+  'ScheduleWakeup',
   // Navigation (both roles need these)
   'Glob', 'Grep', 'Read',
+  // Notebook
+  'NotebookEdit',
   // Write with path constraints (checked separately)
   'Write', 'Edit',
-  // Bash with command constraints (checked separately)
-  'Bash',
+  // Bash/PowerShell with command constraints (checked separately)
+  'Bash', 'PowerShell',
   // OMC MCP tools
   'mcp__plugin_oh-my-claudecode_t__state_read',
   'mcp__plugin_oh-my-claudecode_t__state_write',
@@ -98,7 +101,7 @@ const TEAM_LEAD_EXTRA = new Set([
 const PATH_CHECK_TOOLS = new Set(['Write', 'Edit']);
 
 // Tools that need command checking
-const CMD_CHECK_TOOLS = new Set(['Bash']);
+const CMD_CHECK_TOOLS = new Set(['Bash', 'PowerShell']);
 
 // ---------------------------------------------------------------------------
 // Write path constraints (shared by both roles)
@@ -122,7 +125,7 @@ const WRITE_DENY_PATHS = [
 // ---------------------------------------------------------------------------
 
 const BASH_HARD_DENY = [
-  /[>|]\s*[^|&]/, /\btee\b/, /\bsed\s+-i/, /\bawk\b.*>/, /\bperl\s+-[ip]/,
+  /(?:^|[^2])>\s*[^|&>]/, /\btee\b/, /\bsed\s+-i/, /\bawk\b.*>/, /\bperl\s+-[ip]/,
   /\bpython[23]?\s/, /\bnode\s+(?!--version)/, /\bcurl\s.*-[oO]/, /\bwget\b/,
   /\bnpm\s+(run|start|exec|test|install|ci|build)\b/,
   /\bpnpm\s+(run|start|exec|test|install|build)\b/,
@@ -131,13 +134,17 @@ const BASH_HARD_DENY = [
 
 const BASH_ALLOWLIST = [
   /^git\s+(status|log|branch|remote|diff|show|tag|rev-parse|describe|fetch)\b/,
-  /^ls(\s|$)/, /^pwd$/, /^wc\s/, /^file\s/, /^stat\s/, /^du\s/, /^df\s/,
+  /^ls(\s|$)/, /^dir(\s|$)/, /^pwd$/, /^wc\s/, /^file\s/, /^stat\s/, /^du\s/, /^df\s/,
   /^echo\s/, /^printf\s/, /^date/, /^whoami/, /^uname/,
   /^which\s/, /^type\s/, /^command\s/,
+  /^head(\s|$)/, /^tail(\s|$)/, /^cat(\s|$)/, /^less(\s|$)/, /^more(\s|$)/,
+  /^find\s/, /^tree(\s|$)/, /^sort(\s|$)/, /^uniq(\s|$)/, /^cut(\s|$)/,
+  /^grep\s/, /^rg\s/, /^ag\s/,
   /^node\s+--version/, /^npm\s+(ls|list|outdated|view|--version)\b/,
   /^pnpm\s+(ls|list|outdated|--version)\b/,
   /^mkdir\s+-p\s/, /^touch\s/, /^cp\s/,
   /^zip\s/, /^unzip\s/,
+  /^gh\s/, /^docker\s+(ps|images|inspect|logs|stats)\b/,
 ];
 
 // ---------------------------------------------------------------------------
@@ -291,22 +298,20 @@ function splitCompoundCommand(command) {
 
 function checkBashCommand(command) {
   const trimmed = command.trim();
-  for (const pat of BASH_HARD_DENY) {
-    if (pat.test(trimmed)) {
-      return { ok: false, reason: `Bash 命令被拦截: ${trimmed.slice(0, 60)} (构建/测试/执行请委派 agent)` };
+  const segments = splitCompoundCommand(trimmed);
+  for (const seg of segments) {
+    const s = seg.trim();
+    if (!s) continue;
+    for (const pat of BASH_HARD_DENY) {
+      if (pat.test(s)) {
+        return { ok: false, reason: `Bash 命令被拦截: ${s.slice(0, 60)} (构建/测试/执行请委派 agent)` };
+      }
+    }
+    if (!checkSingleCommand(s)) {
+      return { ok: false, reason: `Bash 命令不在 allowlist: ${s.slice(0, 60)} (请委派 agent)` };
     }
   }
-  const segments = splitCompoundCommand(trimmed);
-  if (segments.length > 1) {
-    const allAllowed = segments.every(seg => checkSingleCommand(seg.trim()));
-    if (allAllowed) return { ok: true };
-    const failing = segments.find(seg => !checkSingleCommand(seg.trim())) || '';
-    return { ok: false, reason: `Bash 命令不在 allowlist: ${failing.trim().slice(0, 60)} (请委派 agent)` };
-  }
-  for (const pat of BASH_ALLOWLIST) {
-    if (pat.test(trimmed)) return { ok: true };
-  }
-  return { ok: false, reason: `Bash 命令不在 allowlist: ${trimmed.slice(0, 60)} (请委派 agent)` };
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------
