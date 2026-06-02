@@ -20,7 +20,7 @@ import { join } from 'node:path';
 import { readStdin } from './lib/stdin.mjs';
 import { findPortfolioRoot, getProjectForCwd } from './lib/portfolio.mjs';
 import { detectRuntimeCommand } from './lib/runtime-switch.mjs';
-import { readState, writeState, refreshState, isStale } from './lib/bootstrap-state.mjs';
+import { readState, refreshState, isStale } from './lib/bootstrap-state.mjs';
 import { probeIntegration } from './lib/integration-probe.mjs';
 
 function passThrough() {
@@ -71,6 +71,9 @@ async function main() {
 
     let data = {};
     try { data = JSON.parse(input); } catch { passThrough(); return; }
+
+    // Sub-agent bypass (parent hook handles parent prompt; sub-agents stay silent)
+    if (data.agent_id || data.parentToolUseId) { passThrough(); return; }
 
     const rawCwd = data.cwd || data.directory || process.cwd();
     const cwd = findPortfolioRoot(rawCwd);
