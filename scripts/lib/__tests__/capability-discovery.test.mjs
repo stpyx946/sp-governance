@@ -89,13 +89,17 @@ test('matchCapabilities respects topK and minScore', () => {
   const caps = {
     plugins: {
       'p@m': {
-        agents: [{ name: 'a', description: 'x' }, { name: 'b', description: 'x' }, { name: 'c', description: 'x' }],
+        agents: [
+          { name: 'alpha', description: 'shared keyword' },
+          { name: 'beta', description: 'shared keyword' },
+          { name: 'gamma', description: 'shared keyword' },
+        ],
         skills: [], commands: [],
       },
     },
   };
   const idx = buildIndex(caps);
-  const all = matchCapabilities('x', idx, { topK: 2, minScore: 1 });
+  const all = matchCapabilities('shared', idx, { topK: 2, minScore: 1 });
   assert.equal(all.length, 2);
   const none = matchCapabilities('zzz', idx, { topK: 5, minScore: 1 });
   assert.equal(none.length, 0);

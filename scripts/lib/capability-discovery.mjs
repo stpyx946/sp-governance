@@ -34,7 +34,7 @@ export function tokenize(text, stopwords = STOPWORDS) {
   if (!text || typeof text !== 'string') return [];
   const lower = text.toLowerCase();
   const chinese = lower.match(/[一-龥]{2,}/g) || [];
-  const english = lower.match(/[a-z][a-z0-9-]*/g) || [];
+  const english = lower.match(/[a-z][a-z0-9-]+/g) || [];
   return [...chinese, ...english].filter(t => !stopwords.has(t));
 }
 
