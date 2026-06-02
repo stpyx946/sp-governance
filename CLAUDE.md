@@ -77,6 +77,17 @@ portfolio.json 记录所有已注册项目：
 }
 ```
 
+### governance_mode 字段
+
+| 值 | 含义 | hooks 行为 |
+|---|---|---|
+| `auto` (默认) | 全部 hooks 生效 | 进入 → Team-Lead 角色 |
+| `readonly` | 只读 fork/学习材料 | 子项目检测跳过；不进入 Team-Lead |
+| `off` | 完全关闭 SP 干预 | 同 readonly + destructive guard 也不拦截 |
+| `external` | 不在本仓库的占位 | 子项目检测跳过 |
+
+使用 `/sp-governance:sp-classify-projects` skill 半自动批量迁移。
+
 项目级别：A (>100 源文件) / B (≤100) / C (≤20)
 
 ---
