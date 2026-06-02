@@ -62,3 +62,28 @@ test('returns null for unrelated prompts', () => {
   assert.equal(detectRuntimeCommand(''), null);
   assert.equal(detectRuntimeCommand(null), null);
 });
+
+test('does NOT trigger disable on prose mention', () => {
+  assert.equal(detectRuntimeCommand('I want to disable SP because it broke'), null);
+  assert.equal(detectRuntimeCommand('我已经关闭SP了'), null);
+  assert.equal(detectRuntimeCommand('I disabled SP yesterday'), null);
+  assert.equal(detectRuntimeCommand('he tried to disable sp but failed'), null);
+});
+
+test('does trigger disable on imperative form', () => {
+  assert.equal(detectRuntimeCommand('disable SP')?.action, 'disable_sp');
+  assert.equal(detectRuntimeCommand('please disable SP')?.action, 'disable_sp');
+  assert.equal(detectRuntimeCommand('请关闭SP')?.action, 'disable_sp');
+  assert.equal(detectRuntimeCommand('帮我关闭SP')?.action, 'disable_sp');
+  assert.equal(detectRuntimeCommand('关闭SP')?.action, 'disable_sp');
+});
+
+test('信任 marketplace without target is null (not literal "marketplace")', () => {
+  assert.equal(detectRuntimeCommand('信任 marketplace'), null);
+});
+
+test('trailing punctuation is stripped from target', () => {
+  const cmd = detectRuntimeCommand('拉黑 omc,');
+  assert.equal(cmd?.action, 'deny');
+  assert.equal(cmd?.target, 'omc');
+});
