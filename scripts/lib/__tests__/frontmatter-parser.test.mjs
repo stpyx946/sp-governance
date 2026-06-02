@@ -30,3 +30,32 @@ test('handles values containing colons', () => {
   const result = parseFrontmatter('---\nurl: https://example.com:8080/path\n---\n');
   assert.equal(result.url, 'https://example.com:8080/path');
 });
+
+test('handles CRLF line endings (Windows files)', () => {
+  const content = '---\r\nname: x\r\nmodel: y\r\n---\r\nbody';
+  const result = parseFrontmatter(content);
+  assert.equal(result.name, 'x');
+  assert.equal(result.model, 'y');
+});
+
+test('handles mixed CRLF and LF line endings', () => {
+  const content = '---\r\nname: x\nmodel: y\r\n---\nbody';
+  const result = parseFrontmatter(content);
+  assert.equal(result.name, 'x');
+  assert.equal(result.model, 'y');
+});
+
+test('returns null for null or undefined input', () => {
+  assert.equal(parseFrontmatter(null), null);
+  assert.equal(parseFrontmatter(undefined), null);
+});
+
+test('parses realistic agent frontmatter (commas, parens, numbers)', () => {
+  const content = '---\nname: architect\ndescription: Strategic Architecture & Debugging Advisor (Opus, READ-ONLY)\nmodel: opus\nlevel: 3\ndisallowedTools: Write, Edit\n---\nbody';
+  const result = parseFrontmatter(content);
+  assert.equal(result.name, 'architect');
+  assert.equal(result.description, 'Strategic Architecture & Debugging Advisor (Opus, READ-ONLY)');
+  assert.equal(result.model, 'opus');
+  assert.equal(result.level, '3');  // String, not number
+  assert.equal(result.disallowedTools, 'Write, Edit');
+});

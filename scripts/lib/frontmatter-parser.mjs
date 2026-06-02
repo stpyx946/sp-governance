@@ -4,13 +4,15 @@
 //   - Top-of-file --- block
 //   - One key:value per line
 //   - Optional single/double quotes around value
+//   - CRLF line endings normalized to LF (Windows files with core.autocrlf=true)
 //
 // Does NOT support: nested keys, arrays, multi-line values, YAML refs.
 // Failure mode: returns null if no frontmatter; skips malformed lines.
 
 export function parseFrontmatter(content) {
   if (!content || typeof content !== 'string') return null;
-  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  const normalized = content.replace(/\r\n/g, '\n');
+  const match = normalized.match(/^---\n([\s\S]*?)\n---/);
   if (!match) return null;
 
   const result = {};
