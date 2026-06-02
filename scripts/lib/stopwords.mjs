@@ -2,6 +2,7 @@
 //
 // Users can extend via sp.json::config.discovery.stopwords_extra.
 // Use buildStopwordSet(extra) to compose runtime set.
+// Always returns a fresh Set; consumer mutations never affect the module-scoped STOPWORDS.
 
 export const STOPWORDS = new Set([
   // 中文虚词
@@ -20,10 +21,13 @@ export const STOPWORDS = new Set([
 ]);
 
 export function buildStopwordSet(extra = []) {
-  if (!Array.isArray(extra) || extra.length === 0) return STOPWORDS;
-  const set = new Set(STOPWORDS);
-  for (const w of extra) {
-    if (typeof w === 'string' && w.length > 0) set.add(w.toLowerCase());
+  const set = new Set(STOPWORDS);  // always copy
+  if (Array.isArray(extra)) {
+    for (const w of extra) {
+      if (typeof w !== 'string') continue;
+      const t = w.trim().toLowerCase();  // trim + lowercase (also addresses LOW finding)
+      if (t.length > 0) set.add(t);
+    }
   }
   return set;
 }
