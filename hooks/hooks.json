@@ -1,5 +1,5 @@
 {
-  "description": "SP governance hooks v9 — three-layer architecture with project boundary guards and safety hooks",
+  "description": "SP governance hooks v10 — zero-coupling capability discovery + dual-track v9/v10 engine router",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PLUGIN_ROOT\"/scripts/run.cjs \"$CLAUDE_PLUGIN_ROOT\"/scripts/sp-bootstrap-guard.mjs",
+            "command": "node \"$CLAUDE_PLUGIN_ROOT\"/scripts/run.cjs \"$CLAUDE_PLUGIN_ROOT\"/scripts/engine-router.mjs bootstrap-guard",
             "timeout": 5
           }
         ]
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PLUGIN_ROOT\"/scripts/run.cjs \"$CLAUDE_PLUGIN_ROOT\"/scripts/sp-pm-allowlist-guard.mjs",
+            "command": "node \"$CLAUDE_PLUGIN_ROOT\"/scripts/run.cjs \"$CLAUDE_PLUGIN_ROOT\"/scripts/engine-router.mjs pm-allowlist-guard",
             "timeout": 5
           }
         ]
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PLUGIN_ROOT\"/scripts/run.cjs \"$CLAUDE_PLUGIN_ROOT\"/scripts/sp-route-guard.mjs",
+            "command": "node \"$CLAUDE_PLUGIN_ROOT\"/scripts/run.cjs \"$CLAUDE_PLUGIN_ROOT\"/scripts/engine-router.mjs route-guard",
             "timeout": 5
           }
         ]

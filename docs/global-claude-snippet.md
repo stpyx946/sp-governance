@@ -1,6 +1,6 @@
-# SP Governance — v9.0.0
+# SP Governance — v10.0.0
 
-> 三层架构多项目治理层。Agents 统一使用 OMC (`oh-my-claudecode:*`)。
+> 零耦合多项目治理层。能力发现基于 Claude Code 官方契约（installed_plugins.json + frontmatter），不写死任何上游插件名。
 
 ## 激活条件
 
@@ -8,30 +8,31 @@
 - 子项目目录内 → 所有 SP hooks 自动跳过
 - 禁用: 创建 `.sp-disabled` 标记文件
 
-## 三层架构
+## 信任策略
 
-| 层 | 组件 | 职责 |
-|----|------|------|
-| 治理层 | SP Governance | 项目注册、边界守护、安全防护、集成协调 |
-| 执行层 | OMC (oh-my-claudecode) | Agent 编排、任务执行、并行调度 |
-| 质量层 | ECC (everything-claude-code) | 规则学习、质量门禁、持续改进（可选） |
+- `.omc/sp.json::trust` 由用户主控
+- 新发现的 marketplace 默认走 `default_policy`（出厂 `ask`）
+- 决策优先级：`plugins[mkt/plug]` > `marketplaces[mkt]` > `default_policy`
 
-## Agent 使用
+## Agent 推荐
 
-| 任务 | Agent |
-|------|-------|
-| 架构分析 | `oh-my-claudecode:architect` |
-| 代码实现 | `oh-my-claudecode:executor` |
-| 代码审查 | `oh-my-claudecode:code-reviewer` |
-| 测试编写 | `oh-my-claudecode:test-engineer` |
-| 文档编写 | `oh-my-claudecode:writer` |
+`route-guard` 自动撮合用户 prompt 到候选 agent/skill/command，注入 `<sp-capability-match>JSON</sp-capability-match>`。主模型按候选列表执行。SP 不写死任何 agent 名。
 
-## 运行时开关
+## 运行时指令
 
-- **关闭**: `关闭SP` / `禁用SP` / `disable SP` / `sp off`
-- **开启**: `启用SP` / `开启SP` / `enable SP` / `sp on`
+| 指令 | 动作 |
+|------|------|
+| `关闭SP` / `disable SP` / `sp off` | 停用 SP |
+| `启用SP` / `enable SP` / `sp on` | 启用 SP |
+| `SP 信任默认 allow\|deny\|ask` | 修改默认策略 |
+| `信任 marketplace <name>` | allow 某 marketplace |
+| `取消信任 <name>` / `拉黑 <name>` | ask / deny |
+| `重置 SP 信任` | 删除 sp.json 重新引导 |
+| `切换 SP 引擎 v9\|v10` | 双轨切换 |
 
-## 与 OMC 共存
+## 与其他插件共存
 
-- SP hooks 在 `portfolio.json` 存在时执行，但 CWD 在已注册子项目内时自动跳过
-- SP 标记 (`<!-- SP:START/END -->`) 与 OMC 标记 (`<!-- OMC:START/END -->`) 互不干扰
+- SP 标记 `<!-- SP:START/END -->` 与其他插件标记（如 `<!-- OMC:START/END -->`）互不干扰
+- SP hooks 在 `portfolio.json` 存在时执行；子项目内自动跳过
+
+详见 [sp-governance/CLAUDE.md](sp-governance/CLAUDE.md) 和 [README.md](sp-governance/README.md)。

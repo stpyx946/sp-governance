@@ -1,45 +1,27 @@
 #!/usr/bin/env node
-
 /**
- * SP Route Guard v2 — Lightweight PreToolUse Hook (Agent matcher)
+ * sp-route-guard.mjs v10 — PreToolUse Hook (Agent matcher)
  *
- * Simplified from v1: no longer blocks agent calls or requires SP-ROLE tags.
- * SP agents are archived — all work is done via OMC agents.
+ * Reduced from 193 → ~110 lines by replacing hardcoded role keyword tables
+ * with capability-discovery matchCapabilities() output, injected as
+ * <sp-capability-match>JSON</sp-capability-match> for the main model to parse.
  *
- * Flow:
- *   1. No portfolio.json → skip
- *   2. Sub-project bypass → skip (user is developer, not PM)
- *   3. Prompt mentions registered projects → inject project context as additionalContext
- *   4. Otherwise → silent allow
- *
- * Output format: Claude Code PreToolUse hookSpecificOutput.additionalContext (never blocks)
+ * Behavior:
+ *   1. Sub-agent bypass (data.agent_id || data.parentToolUseId)
+ *   2. No portfolio.json → silent allow
+ *   3. .sp-disabled → silent allow
+ *   4. Sub-project bypass (readonly/off also bypass)
+ *   5. Match registered project names in prompt → inject project context
+ *   6. Run capability discovery + matching → inject JSON recommendations
+ *   7. Never blocks
  */
 
-import { existsSync, readFileSync } from 'fs';
-import { join, resolve } from 'path';
+import { existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { readStdin } from './lib/stdin.mjs';
-import { findPortfolioRoot } from './lib/portfolio.mjs';
-
-let buildRulesContext = null;
-let isECCAvailable = null;
-try {
-  const eccAdapter = await import('./adapters/ecc-adapter.mjs');
-  buildRulesContext = eccAdapter.buildRulesContext;
-  isECCAvailable = eccAdapter.isECCAvailable;
-} catch { /* ECC adapter 不可用，跳过规则注入 */ }
-
-let resolveAgent = null;
-let isOMCAvailable = null;
-try {
-  const omcAdapter = await import('./adapters/omc-adapter.mjs');
-  resolveAgent = omcAdapter.resolveAgent;
-  isOMCAvailable = omcAdapter.isOMCAvailable;
-} catch { /* OMC adapter 不可用，跳过 agent 推荐 */ }
-
-function matchProjectName(text, name) {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`(?:^|[\\s/\\\\:,."'(\\[])${escaped}(?:$|[\\s/\\\\:,."')\\]])`, 'i').test(text);
-}
+import { findPortfolioRoot, readPortfolio, getProjectForCwd, isProjectGovernanceSkipped } from './lib/portfolio.mjs';
+import { discoverCapabilities, matchCapabilities } from './lib/capability-discovery.mjs';
+import { readSPState } from './lib/trust-policy.mjs';
 
 function allow() {
   console.log(JSON.stringify({ continue: true, suppressOutput: true }));
@@ -50,8 +32,8 @@ function allowWithContext(message) {
     continue: true,
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
-      additionalContext: message
-    }
+      additionalContext: message,
+    },
   }));
 }
 
@@ -63,129 +45,81 @@ async function main() {
     let data = {};
     try { data = JSON.parse(input); } catch { allow(); return; }
 
+    // 1. Sub-agent bypass (parent hook handles parent prompt; sub-agents stay silent)
+    if (data.agent_id || data.parentToolUseId) { allow(); return; }
+
     const toolInput = data.tool_input || data.toolInput || {};
     const rawCwd = data.cwd || data.directory || process.cwd();
     const cwd = findPortfolioRoot(rawCwd);
     const portfolioPath = join(cwd, 'portfolio.json');
 
-    // 1. No portfolio.json → skip
     if (!existsSync(portfolioPath)) { allow(); return; }
-
-    // 2. .sp-disabled → skip
     if (existsSync(join(cwd, '.sp-disabled'))) { allow(); return; }
 
-    // 3. Sub-project bypass
+    // Sub-project bypass (also covers readonly/off)
+    const proj = getProjectForCwd(rawCwd, cwd);
+    if (proj) {
+      if (isProjectGovernanceSkipped(proj)) { allow(); return; }
+      // Inside an auto-mode project, route-guard still allows (it's a TeamLead workspace)
+      allow(); return;
+    }
+
+    // Workspace root — proceed with matching
+    const portfolio = readPortfolio(cwd);
+    if (!portfolio?.projects?.length) { allow(); return; }
+
+    const promptText = ((toolInput.prompt || '') + ' ' + (toolInput.description || '')).toLowerCase();
+    let additionalContext = '';
+
+    // 1. Match registered project names in prompt
+    const matchedProjects = portfolio.projects.filter(p => {
+      const escName = p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').toLowerCase();
+      return new RegExp(`(?:^|[^a-z0-9-])${escName}(?:$|[^a-z0-9-])`).test(promptText);
+    });
+    if (matchedProjects.length > 0) {
+      const info = matchedProjects.map(p =>
+        `${p.name} (${p.tech_stack}/${p.framework}, group: ${p.group}, level: ${p.level})`
+      ).join('; ');
+      additionalContext = `[SP Context] 涉及项目: ${info}。请确保修改在对应项目目录范围内。`;
+    }
+
+    // 2. Capability matching → JSON injection
     try {
-      const normRaw = resolve(rawCwd).replace(/\\/g, '/').toLowerCase();
-      const normRoot = resolve(cwd).replace(/\\/g, '/').toLowerCase();
-      if (normRaw !== normRoot) {
-        const pfData = JSON.parse(readFileSync(portfolioPath, 'utf-8'));
-        const isInProject = (pfData.projects || []).some(p => {
-          const pp = resolve(cwd, p.path).replace(/\\/g, '/').toLowerCase();
-          return normRaw === pp || normRaw.startsWith(pp + '/');
+      const sp = readSPState(cwd);
+      const matchOpts = sp.config?.discovery?.match || {};
+      const stopExtra = sp.config?.discovery?.stopwords_extra || [];
+      const caps = discoverCapabilities(cwd);
+      const userPrompt = toolInput.prompt || '';
+      if (userPrompt && caps.index && caps.index.size > 0) {
+        const matches = matchCapabilities(userPrompt, caps.index, {
+          topK: matchOpts.top_k ?? 3,
+          minScore: matchOpts.min_score ?? 2,
+          boostNameExact: matchOpts.boost_name_exact ?? 3,
         });
-        if (isInProject) { allow(); return; }
+        if (matches.length > 0) {
+          const payload = {
+            prompt_keywords: [...new Set(userPrompt.toLowerCase().match(/[a-z]+|[一-龥]+/g) || [])].slice(0, 10),
+            matches: matches.map(m => ({
+              plugin: m.plugin,
+              name: m.name,
+              kind: m.kind,
+              model: m.model,
+              score: m.score,
+            })),
+          };
+          additionalContext += (additionalContext ? '\n' : '') +
+            `<sp-capability-match>${JSON.stringify(payload)}</sp-capability-match>`;
+        }
       }
-    } catch { /* continue */ }
+    } catch { /* discovery errors never block routing */ }
 
-    // 4. Read portfolio for project matching
-    let portfolio;
-    try {
-      portfolio = JSON.parse(readFileSync(portfolioPath, 'utf-8'));
-    } catch { allow(); return; }
-
-    // 5. Build project registry
-    const projects = portfolio.projects || [];
-    const projectNames = new Set(projects.map(p => p.name.toLowerCase()));
-    const projectPaths = new Set(projects.map(p => p.path.toLowerCase()));
-    const allKeys = new Set([...projectNames, ...projectPaths]);
-
-    if (allKeys.size === 0) { allow(); return; }
-
-    // 6. Check if prompt mentions registered projects
-    const text = ((toolInput.prompt || '') + ' ' + (toolInput.description || '')).toLowerCase();
-    const matched = [...allKeys].filter(n => {
-      const escaped = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      return new RegExp(`(?:^|[^a-z0-9-])${escaped}(?:$|[^a-z0-9-])`).test(text);
-    });
-
-    if (matched.length === 0) { allow(); return; }
-
-    // 7. Inject project context (informational only, never blocks)
-    const matchedProjects = projects.filter(p =>
-      matched.includes(p.name.toLowerCase()) || matched.includes(p.path.toLowerCase())
-    );
-    const seen = new Set();
-    const unique = matchedProjects.filter(p => {
-      if (seen.has(p.name)) return false;
-      seen.add(p.name);
-      return true;
-    });
-
-    const info = unique.map(p =>
-      `${p.name} (${p.tech_stack}/${p.framework}, group: ${p.group}, level: ${p.level})`
-    ).join('; ');
-
-    let additionalContext = `[SP Context] 涉及项目: ${info}。请确保修改在对应项目目录范围内。`;
-
-    // === ECC 编码规范注入 ===
-    if (buildRulesContext && isECCAvailable) {
-      try {
-        const eccStatus = isECCAvailable(cwd);
-        if (eccStatus.available && eccStatus.path) {
-          const agentPrompt = toolInput.prompt || '';
-          const matchedProject = portfolio.projects?.find(p =>
-            matchProjectName(agentPrompt, p.name)
-          );
-          if (matchedProject?.tech_stack) {
-            const rulesCtx = buildRulesContext(matchedProject.tech_stack, eccStatus.path);
-            if (rulesCtx) {
-              additionalContext += '\n' + rulesCtx;
-            }
-          }
-        }
-      } catch { /* ECC 规则注入失败不影响路由 */ }
+    if (additionalContext) {
+      allowWithContext(additionalContext);
+    } else {
+      allow();
     }
-
-    // === OMC Agent 推荐注入 ===
-    if (resolveAgent && isOMCAvailable) {
-      try {
-        const omcStatus = isOMCAvailable(cwd);
-        if (omcStatus.available) {
-          // 从 prompt 中推断 SP 角色关键词，映射到 OMC agent
-          const agentPrompt = (toolInput.prompt || '').toLowerCase();
-          const roleKeywords = [
-            ['architect', '架构'],
-            ['executor', '实现', '开发', '编码'],
-            ['code-reviewer', '审查', 'review'],
-            ['test-engineer', '测试', 'test'],
-            ['debugger', '调试', 'debug'],
-            ['writer', '文档', 'doc'],
-            ['security-reviewer', '安全', 'security'],
-            ['explore', '搜索', '查找', 'explore'],
-            ['planner', '规划', 'plan'],
-          ];
-          let detectedRole = null;
-          for (const [role, ...keywords] of roleKeywords) {
-            if (keywords.some(kw => agentPrompt.includes(kw))) {
-              detectedRole = role;
-              break;
-            }
-          }
-          if (detectedRole) {
-            const resolved = resolveAgent(detectedRole);
-            if (resolved.omc_agent) {
-              additionalContext += `\n[SP-OMC] 推荐 OMC Agent: ${resolved.omc_agent} (model: ${resolved.model})`;
-            }
-          }
-        }
-      } catch { /* OMC agent 推荐失败不影响路由 */ }
-    }
-
-    allowWithContext(additionalContext);
   } catch {
-    // On any error, allow — never block
-    console.log(JSON.stringify({ continue: true, suppressOutput: true }));
+    allow();
   }
 }
 
