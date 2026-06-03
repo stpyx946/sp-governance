@@ -1,59 +1,51 @@
-# SP Governance Plugin (Lite)
+# SP Governance Plugin (Lite, v10)
 
-> 轻量多项目治理层，为 Claude Code 提供项目边界守护和安全防护。
-> 不限制工具使用，不强制角色分配，所有 agent 工作由 OMC 体系承担。
+> 零耦合多项目治理层，基于 Claude Code 官方契约做能力发现，不写死任何上游插件名。
 
 ---
 
 ## 一、定位
 
-SP Governance 是一个轻量治理层，叠加在 OMC (oh-my-claudecode) 之上：
+SP Governance v10 是一个轻量治理层，与所有 Claude Code 上游插件解耦：
 
-- **项目注册**: portfolio.json 记录工作空间内的项目、分组、技术栈
-- **边界守护**: hooks 在涉及已注册项目时注入上下文信息
+- **项目注册**: `portfolio.json` 记录工作空间内的项目、分组、技术栈、`governance_mode`
+- **边界守护**: hooks 在涉及已注册项目时注入项目上下文 + 撮合候选 agent/skill
 - **安全防护**: destructive guard 拦截危险的 Bash 命令
-- **治理文件保护**: governance/ 和 agents/ 目录的修改需要用户审批
+- **治理文件保护**: `governance/` 和 `agents/` 目录的修改需要用户审批
+- **信任策略**: `.omc/sp.json::trust` 由用户决策；新插件默认 `ask`
+- **零耦合发现**: 只读 `installed_plugins.json` + 各插件 frontmatter，不依赖任何具体插件名
 
 **SP 不做的事：**
 - 不限制工具使用（Glob、Grep、Read 等全部可用）
 - 不强制 PM 角色（用户可以直接操作任何项目）
-- 不要求 SP-ROLE 标记（OMC agents 直接使用）
+- 不要求 SP-ROLE 标记
 - 不做启动诊断（静默创建 state，7 天刷新）
+- 不写死上游插件的 agent/skill/mode/MCP 工具名
 
 ---
 
-## 二、Agent 使用
+## 二、Agent 推荐机制
 
-所有 agent 工作统一使用 OMC agents，不再需要 `sp-governance:sp-*` agents：
+v10 不再使用固定 agent 映射表。`route-guard` 通过 `lib/capability-discovery.mjs` 在用户调用 Agent 工具时**自动撮合**：
 
-| 任务 | OMC Agent |
-|------|-----------|
-| 架构分析 | `oh-my-claudecode:architect` |
-| 代码实现 | `oh-my-claudecode:executor` |
-| 代码审查 | `oh-my-claudecode:code-reviewer` |
-| 测试编写 | `oh-my-claudecode:test-engineer` |
-| 文档编写 | `oh-my-claudecode:writer` |
-| 安全审查 | `oh-my-claudecode:security-reviewer` |
-| 调试分析 | `oh-my-claudecode:debugger` |
-| 代码搜索 | `oh-my-claudecode:explore` |
-| 方案规划 | `oh-my-claudecode:planner` |
+1. 读 `~/.claude/plugins/installed_plugins.json` 获取已安装插件
+2. 按 `.omc/sp.json::trust` 过滤出 allowed 插件
+3. 扫描每个 allowed 插件的 `agents/*.md`、`skills/*/SKILL.md`、`commands/*.md` frontmatter
+4. 建倒排索引（缓存在 `.omc/cache/capabilities.json`）
+5. 把用户 prompt 分词、查索引、按 score 取 topK
+6. 注入 `<sp-capability-match>JSON</sp-capability-match>` 给主模型解析
+
+主模型直接据此 `Task(subagent_type=..., model=...)`，SP 不再硬编码任何 agent 名。
 
 ### 执行模式
 
-| 场景 | OMC 模式 |
-|------|----------|
-| 并行子任务 | `/ultrawork` |
-| 迭代完成 | `/ralph` |
-| 端到端自主 | `/autopilot` |
-| 多 agent 协作 | `/team` |
-| QA 循环 | `/ultraqa` |
-| 复杂 bug | `/trace` |
+模式名（autopilot / ultrawork / ralph / team / ralplan 等）来自上游插件自身的命令注册，SP 不维护映射。用户直接输入 `/<mode>` 即可。
 
 ---
 
 ## 三、项目注册
 
-portfolio.json 记录所有已注册项目：
+`portfolio.json` 记录所有已注册项目：
 
 ```json
 {
@@ -96,25 +88,58 @@ portfolio.json 记录所有已注册项目：
 
 | Hook | 触发 | 作用 |
 |------|------|------|
-| bootstrap-guard | UserPromptSubmit | 子项目检测、运行时开关、state 管理 |
-| pm-guard | PreToolUse (*) | 双角色模型：workspace 根=PM(fail-closed), 子项目=Team-Lead(全放行) |
-| route-guard | PreToolUse (Agent) | 子项目绕过、项目上下文注入 |
-| destructive-guard | PreToolUse (Bash) | 危险命令拦截 (rm -rf, git push --force 等) |
+| bootstrap-guard | UserPromptSubmit | 子项目检测、运行时开关、信任指令检测、7 天 stale 刷新 |
+| pm-allowlist-guard | PreToolUse (*) | 双角色 fail-closed allowlist；governance_mode 跳过；MCP 工具从信任策略动态推导 |
+| route-guard | PreToolUse (Agent) | 项目上下文注入 + `<sp-capability-match>` JSON 注入 |
+| destructive-guard | PreToolUse (Bash) | 危险命令拦截 (rm -rf、git push --force、DROP TABLE 等) |
+
+三个非破坏性 hook 经 `engine-router.mjs` 调度，读 `.omc/sp.json::execution_engine`：v10（默认）或 v9（双轨回退）。
 
 ### 双角色模型
 
-- **治理根目录 (portfolio.json 所在) → PM 角色**: fail-closed allowlist。可用 Glob/Grep/Read 导航，可写 .md 和管理路径，Bash 限只读。禁止 WebFetch/WebSearch/lsp_*/python_repl
-- **已注册子项目目录 → Team-Lead 角色**: 与 PM 相同的 fail-closed allowlist，但额外允许 WebFetch/WebSearch（外部研究）
-- **两个角色共同限制**: 业务代码(.ts/.js/.py等)和配置文件(package.json等)的写入必须委派 agent；构建/测试命令必须委派 agent；governance/ 修改需用户审批
+- **治理根目录 (portfolio.json 所在) → PM 角色**: fail-closed allowlist。可用 Glob/Grep/Read 导航，可写 `.md` 和管理路径，Bash 限只读
+- **已注册子项目目录 (governance_mode=auto) → Team-Lead 角色**: 与 PM 相同的 fail-closed allowlist，但额外允许 WebFetch/WebSearch
+- **governance_mode=readonly|off**: hook 完全跳过（不进入 Team-Lead）
+- **MCP 工具**: prefix `mcp__plugin_<name>_t__*` 从 `trust.marketplaces[name]=allow` 的插件动态推导，未授权插件的 MCP 工具被拒绝
 
-### 运行时开关
+### 运行时指令
 
-- **关闭**: `关闭SP` / `禁用SP` / `disable SP` / `sp off`
-- **开启**: `启用SP` / `开启SP` / `enable SP` / `sp on`
+| 指令 | 动作 |
+|------|------|
+| `关闭SP` / `禁用SP` / `disable SP` / `sp off` | 创建 `.sp-disabled` |
+| `启用SP` / `开启SP` / `enable SP` / `sp on` | 删除 `.sp-disabled` |
+| `SP 信任默认 allow\|deny\|ask` | 写 `trust.default_policy` |
+| `信任 marketplace <name>` | 写 `trust.marketplaces[name] = "allow"` |
+| `取消信任 <name>` | 写 `"ask"` |
+| `拉黑 <name>` | 写 `"deny"` |
+| `重置 SP 信任` | 删除 `.omc/sp.json` |
+| `切换 SP 引擎 v9\|v10` | 双轨切换 |
 
 ---
 
-## 五、飞书自动化 (Feishu Integration)
+## 五、信任策略 (.omc/sp.json)
+
+```json
+{
+  "version": "1.0",
+  "schema": "sp-state-v1",
+  "execution_engine": "v10",
+  "trust": {
+    "default_policy": "ask",
+    "marketplaces": { "<mkt>": "allow|deny|ask" },
+    "plugins": { "<mkt>/<plugin>": "allow|deny|ask" },
+    "decisions": []
+  },
+  "config": {}
+}
+```
+
+决策优先级：`plugins[mkt/plug]` > `marketplaces[mkt]` > `default_policy`。
+文件损坏自动备份 `.bak.<ts>` 并重建默认。原子写（temp + rename）。
+
+---
+
+## 六、飞书自动化 (Feishu Integration)
 
 | Skill | 触发词 | 说明 |
 |-------|--------|------|
