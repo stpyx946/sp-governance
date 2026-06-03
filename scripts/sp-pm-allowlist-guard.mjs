@@ -119,7 +119,12 @@ function hasUnsafeNodeCall(cmd) {
 
 function hasUnsafeRedirect(cmd) {
   const stripped = cmd.replace(/2>\s*\/dev\/null/g, '').replace(/2>&1/g, '');
-  const redirectMatch = stripped.match(/(?:^|[^2])>\s*(.*)/);
+  const appendMatch = stripped.match(/>>\s*(\S+)/);
+  if (appendMatch) {
+    const target = appendMatch[1];
+    if (target !== '/dev/null') return true;
+  }
+  const redirectMatch = stripped.match(/(?:^|[^2>])>(?!>)\s*(.*)/);
   if (!redirectMatch) return false;
   const target = redirectMatch[1].trim();
   if (target === '/dev/null' || target.startsWith('/dev/null ') || target.startsWith('/dev/null;')) return false;
@@ -135,14 +140,24 @@ function toRelPath(filePath, cwd) {
   return rel;
 }
 
+function isDirPath(p) { return p.endsWith('/'); }
+
+function pathMatches(rel, p) {
+  if (isDirPath(p)) {
+    const dir = p.slice(0, -1);
+    return rel === dir || rel.startsWith(p);
+  }
+  return rel === p;
+}
+
 function checkWritePath(filePath, cwd) {
   const rel = toRelPath(filePath, cwd);
   if (rel.startsWith('..')) return { ok: false, reason: `禁止写入工作区外: ${rel}` };
   for (const d of WRITE_DENY_PATHS) {
-    if (rel.startsWith(d)) return { ok: false, reason: `治理文件受保护: ${rel} (需用户明确审批)` };
+    if (pathMatches(rel, d)) return { ok: false, reason: `治理文件受保护: ${rel} (需用户明确审批)` };
   }
   for (const p of WRITE_ALLOWED_PATHS) {
-    if (rel === p || rel === p.replace(/\/$/, '') || rel.startsWith(p)) return { ok: true };
+    if (pathMatches(rel, p)) return { ok: true };
   }
   if (extname(rel).toLowerCase() === '.md') return { ok: true };
   return { ok: false, reason: `禁止写入: ${rel} (业务代码请委派 agent)` };
@@ -205,7 +220,7 @@ async function main() {
     catch { deny('SP Guard 输入解析失败 (fail-closed)'); return; }
 
     // 1. Sub-agent bypass
-    if (data.agent_id) { passThrough(); return; }
+    if (data.agent_id || data.parentToolUseId) { passThrough(); return; }
 
     // 2. Worktree bypass
     const rawCwd = data.cwd || process.cwd();
