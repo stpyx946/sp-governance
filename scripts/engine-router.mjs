@@ -16,7 +16,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { findPortfolioRoot } from './lib/portfolio.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -54,9 +54,10 @@ async function main() {
   }
 
   try {
-    await import(scriptPath);
+    await import(pathToFileURL(scriptPath).href);
   } catch (e) {
-    // Hook script crashed — do not block user
+    // Hook script crashed — do not block user, but log to stderr so the failure is visible in transcripts
+    try { console.error(`[engine-router] import failed for ${scriptPath}: ${e?.message || e}`); } catch { /* ignore */ }
     console.log(JSON.stringify({ continue: true, suppressOutput: true }));
   }
 }
